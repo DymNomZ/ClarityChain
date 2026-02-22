@@ -1,5 +1,15 @@
 import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
 import { configVariable, defineConfig } from "hardhat/config";
+import { defineChain } from "viem";
+
+const polkadotHub = defineChain({
+  id: 420420417,
+  name: "Polkadot Hub TestNet",
+  nativeCurrency: { name: "PAS", symbol: "PAS", decimals: 18 },
+  rpcUrls: {
+    default: { http: ["https://services.polkadothub-rpc.com/testnet"] },
+  },
+});
 
 export default defineConfig({
   plugins: [hardhatToolboxViemPlugin],
