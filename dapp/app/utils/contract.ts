@@ -1,9 +1,9 @@
 import { getContract } from 'viem';
 import { publicClient, getWalletClient } from './viem';
-import StorageABI from '../../abis/Storage.json';
+import ClarityChainABI from '../../abis/ClarityChain.json';
 
-export const CONTRACT_ADDRESS = '0x109e3c104Ca2c5893D817100b4dCA8a7A8C3a137'; // TODO: change when the paseo asset hub RPC URL is available, and the contract is redeployed
-export const CONTRACT_ABI = StorageABI.abi;
+export const CONTRACT_ADDRESS = '0x17ed98199e7f392c84e9c7fcb6260a48dbbea292' as `0x${string}`;
+export const CONTRACT_ABI = ClarityChainABI.abi;
 
 // Create a function to get a contract instance for reading
 export const getContractInstance = () => {
