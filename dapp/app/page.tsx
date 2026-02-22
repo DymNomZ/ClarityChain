@@ -34,7 +34,7 @@ export default function Home() {
               Don't trust. Verify. — Built on Polkadot Hub
             </p>
           </div>
-          <WalletConnect account={account} setAccount={setAccount} />
+          <WalletConnect onConnect={setAccount} />
         </div>
       </header>
 
