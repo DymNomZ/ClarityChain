@@ -1,213 +1,239 @@
-# ClarityChain 🔍
-### The Anti-Corruption Donation Tracker
-**Polkadot Solidity Hackathon 2026 — Cebu Edition**
-
----
-
-## The Pitch
+# 💮 ClarityChain 🔍
+### 🚫 The Anti-Corruption Donation Tracker 🚫
+**🌸 Polkadot Solidity Hackathon 2026 — Cebu Edition 🌷**
 
 > *"In the Philippines, we don't have a donation problem. We have a trust problem. ClarityChain doesn't ask you to trust anyone — it makes trust mathematically unnecessary."*
 
 ---
 
-## The Problem
+## 🔍 What is ClarityChain?
 
-When typhoons hit (like Odette), people donate money, but they don't know where it goes. Corruption or "admin fees" eat up the funds. Trust issues in Philippine government and charities are high, and donors have no way to verify that their money actually bought rice and not new cars.
+ClarityChain is a transparent donation platform built on Polkadot Hub where NGOs and LGUs can receive disaster relief funds — with one critical constraint: **they can only spend those funds by sending to pre-approved, community-vetted vendors.**
 
----
+The contract itself enforces this. There is no admin override. There is no backdoor. An NGO cannot withdraw to their personal wallet — the transaction is rejected at the smart contract level. Every donation received, every vendor approved, and every withdrawal made is permanently visible on the public dashboard.
 
-## The Solution
-
-A transparent, constrained donation platform where spending is architecturally limited by the smart contract itself — not by the NGO's goodwill.
-
-1. An NGO or LGU creates a **Campaign** wallet on the platform.
-2. Donors send **USDC/DOT** to the smart contract.
-3. The contract allows the NGO to **only withdraw funds to Whitelisted Vendors** (e.g., a Grocery Store or Construction Supplier registered on the app). They cannot cash out to their personal wallets.
-4. The public sees **every transaction** on the React Dashboard in real time.
+This directly addresses the trust problem that plagues Philippine disaster relief. When Typhoon Odette hit, people donated. They just didn't know where the money went. ClarityChain makes that question unanswerable by design — because the code answers it automatically.
 
 ---
 
-## Why It Works
+## 🔩 How It Works
 
-- **Relevance:** Trust issues in PH government and charities are high. The Odette reference alone makes any Filipino judge feel it immediately.
-- **Code Difficulty:** Medium. Core mechanics are a whitelist mapping (list of allowed addresses) and a `withdrawToVendor()` function.
-- **The Blockchain Pitch:** *"Don't just trust; verify. We ensure donations buy rice, not new cars."*
-- **Key Differentiator from Giveth/The Giving Block:** Giveth shows you where money goes after the fact — it's a transparency layer on top of existing flows. ClarityChain is architecturally different. The constraint is baked into the contract itself. An NGO on Giveth can still withdraw to their personal wallet and post a receipt later. On ClarityChain, that transaction is **technically impossible**. The contract only has one exit: a whitelisted vendor address.
+### For Donors
+1. Browse active campaigns on the dashboard
+2. Connect a MetaMask wallet
+3. Donate PAS (testnet) or USDC to any active campaign
+4. Watch your donation appear in the public transaction feed immediately
 
----
+### For NGOs
+1. Connect the NGO wallet (the assigned treasurer or tech person)
+2. Create a campaign with a name and fundraising goal
+3. Submit withdrawal requests — but only to whitelisted vendor addresses
+4. Non-whitelisted addresses are rejected on-chain. The rejection is visible to the public.
 
-## Category
-
-**Category 1: DeFi / Stablecoin-enabled dApps**
-
-USDC is central to the donation and withdrawal flow. The constrained spending mechanic is the core DeFi innovation.
-
-> **Stretch Opportunity:** Adding an AI layer (e.g., flagging suspicious withdrawal patterns) would make ClarityChain a dual-category contender for Category 2 (AI-powered dApps) as well.
-
----
-
-## Technical Architecture
-
-### Core Smart Contract Functions
-
-- `deposit()` — Donors send USDC/DOT to a campaign contract
-- `withdrawToVendor(address vendor, uint256 amount)` — NGO withdraws only to a whitelisted vendor address; all other addresses are rejected
-- Whitelist mapping — A `mapping(address => bool)` of approved vendor addresses
-- 3-of-5 Multi-Sig for vendor approval (see Vendor Governance below)
-
-### React Dashboard
-
-- Public view of every on-chain transaction per campaign
-- Campaign creation form (for NGOs)
-- Vendor registration and pending approval queue
-- Community flag system for raising disputes on vendors
+### For Validators (Multi-Sig Governance)
+1. Any validator proposes a new vendor for whitelisting
+2. Other validators sign off on the proposal
+3. Once 3 out of the configured validators approve, the vendor is automatically whitelisted
+4. All proposals, approvals, and whitelistings are logged on-chain permanently
 
 ---
 
-## Vendor Governance: The 3-of-5 Multi-Sig
+## 🔨 Project Structure
 
-### How It Works
-
-Think of it like a group chat where 3 out of 5 admins need to react ✅ before something happens. In crypto terms, you have 5 designated wallet addresses, and any action (approving a vendor) only executes if at least 3 of those wallets sign off on it. No single person can approve a vendor alone.
-
-Every approval is logged on-chain, publicly. If a shell company somehow gets whitelisted, there is a permanent, auditable trail of exactly who signed off.
-
-### Who Gets to Be a Validator
-
-| Slot | Role | Rationale |
-|------|------|-----------|
-| 1 | The NGO itself | They have skin in the game |
-| 2 | A donor representative | Elected by top donors or a donor DAO |
-| 3 | A barangay or LGU official | Adds government legitimacy |
-| 4 | OpenGuild or a partner organization | Neutral third-party tech oversight |
-| 5 | A community watchdog | Journalist, civic group like Bantay Kita, etc. |
-
-**The key principle:** No single sector controls the majority. The NGO alone can't approve their own vendors. A corrupt official alone can't either. They need to conspire across at least 3 groups simultaneously, which is dramatically harder than bribing one admin.
-
-> **For Demo Day:** Your 5 validators can literally be 5 MetaMask wallets on your team's laptops. The mechanism is what matters to judges, not the real-world identities behind it.
-
----
-
-## Vendor Onboarding Flow
-
-A vendor submits the following through a registration page on the React app:
-
-- Business name
-- Wallet address
-- External verification link (DTI registration, Facebook business page, etc.)
-
-This goes into a **"pending"** state on the dashboard. The 3-of-5 multi-sig validators then approve or reject it. The approval transaction is logged on-chain. Rejected vendors are also publicly visible.
-
-You don't need a perfect KYC system for the hackathon — you need a credible one.
+```
+ClarityChain/
+├── storage-contract/          # Hardhat project — smart contract
+│   ├── contracts/
+│   │   └── ClarityChain.sol   # The core contract
+│   ├── scripts/
+│   │   └── deploy-claritychain.ts
+│   ├── artifacts/             # Auto-generated after compile
+│   ├── hardhat.config.ts
+│   └── .env                   # Your private key (never commit this)
+│
+└── dapp/                      # Next.js frontend
+    ├── abis/
+    │   └── ClarityChain.json  # Copied from artifacts after compile
+    ├── app/
+    │   ├── components/
+    │   │   ├── WalletConnect.tsx
+    │   │   ├── CampaignList.tsx
+    │   │   ├── CreateCampaign.tsx
+    │   │   ├── WithdrawToVendor.tsx
+    │   │   ├── VendorManagement.tsx
+    │   │   └── TransactionFeed.tsx
+    │   ├── utils/
+    │   │   ├── viem.ts          # Chain config and client setup
+    │   │   └── contract.ts      # Contract address and ABI export
+    │   ├── page.tsx             # Main tabbed layout
+    │   └── layout.tsx
+    └── package.json
+```
 
 ---
 
-## NGO Onboarding & Wallet Abstraction
+## 📀 Deployed Contract
 
-The realistic assumption is that the NGO has at least one person handling finances or IT — a treasurer, a comms officer, someone. That person gets a wallet, learns the basics, and handles the contract interactions on behalf of the organization.
+| Network | Address |
+|---------|---------|
+| Polkadot Hub TestNet (Passet Hub) | `0x17ed98199e7f392c84e9c7fcb6260a48dbbea292` |
 
-What the UI abstracts is the scary parts. Nobody should have to paste a contract ABI into Remix. The React dashboard handles all of that under the hood.
-
-**The NGO "tech person" experience looks like this:**
-
-1. Connect MetaMask
-2. Fill out a form (Campaign name, goal amount, end date)
-3. Click "Create Campaign"
-4. Sign one MetaMask transaction
-
-That's it. They never see Solidity. They never touch a block explorer. The wallet is the only crypto-native requirement, and one person per NGO having a wallet is a completely reasonable assumption.
+Block Explorer: https://blockscout-passet-hub.parity-testnet.parity.io/address/0x17ed98199e7f392c84e9c7fcb6260a48dbbea292
 
 ---
 
-## Why Polkadot?
+## 🔧 Setup Instructions
 
-- **EVM Compatibility:** Polkadot Hub supports Solidity natively, so no rewriting needed.
-- **Lower Fees:** Transaction fees are significantly lower than Ethereum mainnet. In a disaster relief context, you don't want 20% of a ₱500 micro-donation eaten by gas fees.
-- **Interoperability:** ClarityChain could eventually receive donations from multiple chains without bridging friction. We're building for scale from day one.
+### Prerequisites
 
----
+- [Node.js](https://nodejs.org/) v18 or higher
+- [MetaMask](https://metamask.io/) browser extension
+- Git
 
-## Demo Day Plan
+### 1. Clone the repo
 
-Show a **live transaction** with the following flow:
+```bash
+git clone https://github.com/YOUR_USERNAME/ClarityChain.git
+cd ClarityChain
+```
 
-1. A donor wallet sends USDC to a campaign contract — visible on the dashboard.
-2. The NGO wallet attempts a withdrawal to a **personal wallet** — the contract **rejects it**. Show this live.
-3. The NGO wallet attempts a withdrawal to a **whitelisted vendor** — it goes through instantly.
-4. The entire flow appears on the React dashboard in real time.
+### 2. Set up the smart contract project
 
-> The rejection moment is the whole pitch. Make judges see it happen live.
+```bash
+cd storage-contract
+npm install
+```
 
----
+Create a `.env` file in the `storage-contract/` folder:
+```
+PRIVATE_KEY=0xYourMetaMaskPrivateKeyHere
+```
 
-## Known Limitations & How to Address Them
+> To get your MetaMask private key: MetaMask → Account Details → Export Private Key. **Never share this or commit it to GitHub.**
 
-### Shell Vendors (Fake Front Businesses)
-A shell vendor is a business that exists on paper but does nothing real. Someone registers a legit-looking supplier, gets it whitelisted, receives vendor payments, and the money disappears. The physical goods never existed.
+### 3. Set up MetaMask for Polkadot Hub TestNet
 
-**Our honest answer:** ClarityChain cannot solve fraud at the business registration level — that's a legal problem, not a blockchain problem. What it does is make every peso traceable to a named, publicly visible vendor address, permanently. Any donor, journalist, or citizen can look up that vendor and question it. We also plan a community flag system where any wallet can raise a dispute on a vendor, triggering a multi-sig review. We're not replacing legal accountability — we're creating a public paper trail that makes it much harder to hide.
+Add the network to MetaMask manually:
 
-### On-Chain vs Off-Chain Trust
-ClarityChain creates **accountability infrastructure**. The legal system handles punishment. These are complementary, not competing.
-
----
-
-## Anticipated Judge Questions & Prepared Answers
-
-**"Who controls the vendor whitelist, and what stops that person from being corrupt?"**
-
-> "We don't give that power to a single admin. Vendor approval requires a 3-of-5 multi-sig from a predefined set of community validators — a representative from the NGO, a donor rep, a barangay official, a partner org, and a community watchdog. No single person can approve a vendor alone. And every approval is logged on-chain, publicly. So if a shell company somehow gets whitelisted, there's a permanent, auditable trail of exactly who signed off. We didn't eliminate human judgment — we just made it accountable."
-
----
-
-**"How is this different from Giveth or The Giving Block?"**
-
-> "Giveth shows you where money goes after the fact — it's a transparency layer on top of existing donation flows. ClarityChain is architecturally different. The constraint is baked into the contract itself. An NGO on Giveth can still withdraw to their personal wallet and post a receipt later. On ClarityChain, that transaction is technically impossible. The contract only has one exit: a whitelisted vendor address. We're not asking you to trust the NGO's reporting. We're making the NGO's choices structurally limited by code."
-
----
-
-**"What if a whitelisted vendor is actually a shell company?"**
-
-> "We're honest that we can't solve fraud entirely on-chain — no system can. But every vendor registration requires a business name and wallet address that's publicly visible on the dashboard. Any donor, journalist, or citizen can look up that vendor and question it. We also plan to integrate a community flag system where any wallet can raise a dispute on a vendor, which triggers a multi-sig review. We're not replacing legal accountability — we're creating a public paper trail that makes it much harder to hide."
-
----
-
-**"Why Polkadot specifically? Couldn't this run on Ethereum cheaper?"**
-
-> "Actually, Polkadot Hub's EVM compatibility is exactly why we chose it — we get Solidity support without rewriting everything. But more importantly, transaction fees on Polkadot are significantly lower than Ethereum mainnet. In a disaster relief context, you don't want 20% of a ₱500 micro-donation eaten by gas fees. And Polkadot's interoperability means ClarityChain could eventually receive donations from multiple chains without bridging friction. We're building for scale from day one."
-
----
-
-**"Do you have a working demo?"**
-
-> "Yes. We'll show a live transaction on Demo Day — a donor wallet sending USDC to a campaign contract, and then the NGO attempting two withdrawals: one to a personal wallet, which the contract rejects, and one to a whitelisted vendor, which goes through instantly. The entire flow runs on-chain, visible on our React dashboard in real time. We want judges to see the rejection happen live — that's our whole pitch in one moment."
-
----
-
-## Timeline
-
-| Phase | Dates |
+| Field | Value |
 |-------|-------|
-| Registration & Kickoff | Feb 11 – Feb 28 |
-| Hacking Period (Online) | Feb 11 – March 14 |
-| Demo Day (Venue TBA) | March 15 |
+| Network Name | Polkadot Hub TestNet |
+| Chain ID | `420420417` |
+| RPC URL | `https://services.polkadothub-rpc.com/testnet` |
+| Currency Symbol | PAS |
+
+Get free testnet PAS from the faucet: https://faucet.polkadot.io/?parachain=1111
+
+### 4. Compile the contract
+
+```bash
+cd storage-contract
+npx hardhat compile
+```
+
+You should see `Successfully compiled 1 Solidity file`.
+
+### 5. Copy the ABI to the frontend
+
+```bash
+cp storage-contract/artifacts/contracts/ClarityChain.sol/ClarityChain.json dapp/abis/ClarityChain.json
+```
+
+### 6. Run the frontend
+
+```bash
+cd dapp
+npm install
+npm run dev
+```
+
+Open http://localhost:3000 in your browser.
+
+### 7. (Optional) Redeploy the contract
+
+You only need this if you're deploying a fresh instance. The contract is already live — see address above.
+
+Open `scripts/deploy-claritychain.ts` and fill in the `VALIDATORS` array with 3–5 wallet addresses:
+
+```typescript
+const VALIDATORS: `0x${string}`[] = [
+  "0xWallet1Address",
+  "0xWallet2Address",
+  "0xWallet3Address",
+];
+```
+
+Then:
+
+```bash
+npx hardhat run scripts/deploy-claritychain.ts --network polkadotTestNet
+```
+
+Save the printed contract address and update `dapp/app/utils/contract.ts`.
 
 ---
 
-## Event Details
+## 💾 Key Files to Know
 
-- **Hackathon:** Polkadot Solidity Hackathon 2026: Cebu Edition
+**`storage-contract/contracts/ClarityChain.sol`**
+The entire backend logic. Key functions: `createCampaign()`, `donate()`, `withdrawToVendor()`, `proposeVendor()`, `approveVendor()`. The `require(whitelistedVendors[vendor])` line inside `withdrawToVendor()` is the core mechanic — everything else supports it.
+
+**`dapp/app/utils/viem.ts`**
+Chain configuration and viem client setup. If the RPC endpoint changes, update it here.
+
+**`dapp/app/utils/contract.ts`**
+Contract address and ABI export. If you redeploy, update `CONTRACT_ADDRESS` here.
+
+**`dapp/app/components/WithdrawToVendor.tsx`**
+Contains the live whitelist check UI and the withdrawal flow. The rejection error message is intentionally surfaced clearly — this is the demo moment.
+
+---
+
+## 🏃‍♂️ Demo Day Flow
+
+Practice this until it's muscle memory:
+
+1. **Vendor Governance tab** → Propose "Cebu Rice Supply Co." with Wallet 2's address → Switch to Wallet 2, sign approval → Switch to Wallet 3, sign approval → Vendor is whitelisted ✅
+2. **NGO Dashboard tab** → Create campaign "Typhoon Odette Relief Fund" ✅
+3. **Donate tab** → Donate 0.5 PAS to the campaign ✅
+4. **NGO Dashboard → Withdraw to Vendor** → First: paste a random non-whitelisted address → Contract REJECTS it 🚫 → Second: paste whitelisted vendor → Goes through ✅
+5. **Public Feed tab** → All transactions visible to anyone ✅
+
+> The rejection moment in Step 4 is your entire pitch in one screen. Pause on it. Let the judges read the error message. Then show the successful withdrawal immediately after.
+
+---
+
+## 🌺 Why Polkadot?
+
+- **EVM Compatibility:** Solidity works natively on Polkadot Hub — no rewriting needed
+- **Lower Fees:** Significantly cheaper than Ethereum mainnet, important for micro-donations in the Philippine context
+- **Interoperability:** Future versions could receive donations from multiple chains without bridging friction
+
+---
+
+## 🚧 Known Scope Boundaries
+
+**Traditional payments (GCash, bank transfer, cash):** ClarityChain handles the *spending* side of donations. Fiat collection still happens through the NGO's existing infrastructure — a treasurer converts and deposits into the contract. The transparency and vendor-lock mechanic applies to everything after that point.
+
+**Shell vendors:** ClarityChain cannot prevent a fraudulent business from registering. What it does is make every vendor's wallet address and name permanently public, creating an auditable paper trail. Legal accountability handles the rest.
+
+---
+
+## 💪 Team
+
+> *Team Lead: John Dymier Borgonia - BSCS 3*
+John Zillion Reyes - BSCS 3
+Jeremiah Ramos - BSIT 3
+
+---
+
+## 🏁 Hackathon
+
+- **Event:** 🌹 Polkadot Solidity Hackathon 2026: Cebu Edition 🌺
+- **Category:** Category 1 — DeFi / Stablecoin-enabled dApps
 - **Powered by:** Polkadot and OpenGuild
-- **Format:** Teams of 3 members
-- **Fee:** No registration fees
-- **Location:** Everything online, except Demo Day (TBA)
+- **Demo Day:** March 15, 2026
 
 ---
 
-## Team
-
-> *(Add your names here)*
-
----
-
-*Built for Cebu. Built for trust. Built on Polkadot.* 🔗
+🔗🌸*Built for Cebu. Built for trust. Built on Polkadot.* 🌷🔗
