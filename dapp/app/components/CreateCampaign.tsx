@@ -65,7 +65,7 @@ const CreateCampaign: React.FC<CreateCampaignProps> = ({ account }) => {
   };
 
   return (
-    <div className="rounded-xl border border-pink-500 bg-gray-900 p-6 space-y-4 max-w-lg">
+    <div className="rounded-xl border border-pink-500 bg-gray-900 p-6 space-y-4 max-w-lg mx-auto">
       <h2 className="text-xl font-bold text-white">Create a Campaign</h2>
       <p className="text-sm text-gray-400">
         Your wallet becomes the NGO for this campaign. You'll be the only one who can

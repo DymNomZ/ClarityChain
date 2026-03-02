@@ -210,8 +210,7 @@ const TransactionFeed: React.FC = () => {
 
               {event.txHash && (
                 <a
-                  // href={`https://blockscout-passet-hub.parity-testnet.parity.io/tx/${event.txHash}`}
-                  href={`blockscout-testnet.polkadot.io/tx/${event.txHash}`}
+                  href={`https://blockscout-testnet.polkadot.io/tx/${event.txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-pink-400 hover:text-pink-300 mt-2 block"
