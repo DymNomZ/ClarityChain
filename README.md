@@ -78,7 +78,7 @@ ClarityChain/
 |---------|---------|
 | Polkadot Hub TestNet (Passet Hub) | `0x17ed98199e7f392c84e9c7fcb6260a48dbbea292` |
 
-Block Explorer: https://blockscout-passet-hub.parity-testnet.parity.io/address/0x17ed98199e7f392c84e9c7fcb6260a48dbbea292
+Block Explorer: https://blockscout-testnet.polkadot.io/address/0x17ed98199e7f392c84e9c7fcb6260a48dbbea292
 
 ---
 

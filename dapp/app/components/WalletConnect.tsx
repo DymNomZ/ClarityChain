@@ -1,7 +1,14 @@
 "use client";
 
+// =============================================================================
+// WalletConnect.tsx
+// Issue #11 — Added MetaMask event listeners for accountsChanged and
+// chainChanged so the app reacts cleanly when the user switches wallets
+// or networks mid-session.
+// =============================================================================
+
 import React, { useState, useEffect } from "react";
-import { polkadotTestnet } from "../utils/viem";
+import { publicClient, getWalletClient, polkadotTestnet } from "../utils/viem";
 
 interface WalletConnectProps {
   onConnect: (account: string) => void;
@@ -10,161 +17,180 @@ interface WalletConnectProps {
 const WalletConnect: React.FC<WalletConnectProps> = ({ onConnect }) => {
   const [account, setAccount] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string>("");
+  const [isConnecting, setIsConnecting] = useState(false);
 
+  // ---------------------------------------------------------------------------
+  // Issue #11: Listen for MetaMask account and network changes
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    // Check if user already has an authorized wallet connection
-    const checkConnection = async () => {
-      if (typeof window !== 'undefined' && window.ethereum) {
-        try {
-          // eth_accounts doesn't trigger the wallet popup
-          const accounts = await window.ethereum.request({
-            method: 'eth_accounts',
-          }) as string[];
+    if (typeof window === "undefined" || !window.ethereum) return;
 
-          if (accounts.length > 0) {
-            setAccount(accounts[0]);
-            const chainIdHex = await window.ethereum.request({
-              method: 'eth_chainId',
-            }) as string;
-            setChainId(parseInt(chainIdHex, 16));
-            onConnect(accounts[0]);
-          }
-        } catch (err) {
-          console.error('Error checking connection:', err);
-          setError('Failed to check wallet connection');
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length === 0) {
+        // User disconnected all accounts
+        setAccount(null);
+        onConnect("");
+      } else {
+        const newAccount = accounts[0];
+        setAccount(newAccount);
+        onConnect(newAccount);
+      }
+    };
+
+    const handleChainChanged = () => {
+      // Reload on network switch — safest approach to avoid stale state
+      window.location.reload();
+    };
+
+    window.ethereum.on("accountsChanged", handleAccountsChanged);
+    window.ethereum.on("chainChanged", handleChainChanged);
+
+    // Cleanup listeners on unmount
+    return () => {
+      window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
+      window.ethereum.removeListener("chainChanged", handleChainChanged);
+    };
+  }, [onConnect]);
+
+  // ---------------------------------------------------------------------------
+  // Check if already connected on mount
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const checkConnection = async () => {
+      if (typeof window === "undefined" || !window.ethereum) return;
+      try {
+        const accounts = (await window.ethereum.request({
+          method: "eth_accounts",
+        })) as string[];
+
+        if (accounts.length > 0) {
+          setAccount(accounts[0]);
+          onConnect(accounts[0]);
+          const chainIdHex = (await window.ethereum.request({
+            method: "eth_chainId",
+          })) as string;
+          setChainId(parseInt(chainIdHex, 16));
         }
+      } catch (err) {
+        console.error("Error checking connection:", err);
       }
     };
 
     checkConnection();
+  }, []);
 
-    if (typeof window !== 'undefined' && window.ethereum) {
-      // Setup wallet event listeners
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
-        setAccount(accounts[0] || null);
-        if (accounts[0]) onConnect(accounts[0]);
-      });
-
-      window.ethereum.on('chainChanged', (chainIdHex: string) => {
-        setChainId(parseInt(chainIdHex, 16));
-      });
-    }
-
-    return () => {
-      // Cleanup event listeners
-      if (typeof window !== 'undefined' && window.ethereum) {
-        window.ethereum.removeListener('accountsChanged', () => {});
-        window.ethereum.removeListener('chainChanged', () => {});
-      }
-    };
-  }, [onConnect]);
-
+  // ---------------------------------------------------------------------------
+  // Connect wallet
+  // ---------------------------------------------------------------------------
   const connectWallet = async () => {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      setError(
-        'MetaMask not detected! Please install MetaMask to use this dApp.'
-      );
+    if (typeof window === "undefined" || !window.ethereum) {
+      setError("MetaMask not detected. Please install it first.");
       return;
     }
 
     try {
-      // eth_requestAccounts triggers the wallet popup
-      const accounts = await window.ethereum.request({
-        method: 'eth_requestAccounts',
-      }) as string[];
+      setIsConnecting(true);
+      setError("");
+
+      const accounts = (await window.ethereum.request({
+        method: "eth_requestAccounts",
+      })) as string[];
+
+      const chainIdHex = (await window.ethereum.request({
+        method: "eth_chainId",
+      })) as string;
+      const currentChainId = parseInt(chainIdHex, 16);
 
       setAccount(accounts[0]);
-
-      const chainIdHex = await window.ethereum.request({
-        method: 'eth_chainId',
-      }) as string;
-
-      const currentChainId = parseInt(chainIdHex, 16);
       setChainId(currentChainId);
-
-      // Prompt user to switch networks if needed
-      if (currentChainId !== polkadotTestnet.id) {
-        await switchNetwork();
-      }
-
       onConnect(accounts[0]);
-    } catch (err) {
-      console.error('Error connecting to wallet:', err);
-      setError('Failed to connect wallet');
-    }
-  };
-
-  const switchNetwork = async () => {
-    console.log('Switch network')
-    try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: `0x${polkadotTestnet.id.toString(16)}` }],
-      });
-    } catch (switchError: any) {
-      // Error 4902 means the chain hasn't been added to MetaMask
-      if (switchError.code === 4902) {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [
-              {
-                chainId: `0x${polkadotTestnet.id.toString(16)}`,
-                chainName: polkadotTestnet.name,
-                rpcUrls: [polkadotTestnet.rpcUrls.default.http[0]],
-                nativeCurrency: {
-                  name: polkadotTestnet.nativeCurrency.name,
-                  symbol: polkadotTestnet.nativeCurrency.symbol,
-                  decimals: polkadotTestnet.nativeCurrency.decimals,
-                },
-              },
-            ],
-          });
-        } catch (addError) {
-          setError('Failed to add network to wallet');
-        }
+    } catch (err: any) {
+      if (err.code === 4001) {
+        setError("Connection cancelled.");
       } else {
-        setError('Failed to switch network');
+        setError("Failed to connect wallet. Try again.");
       }
+    } finally {
+      setIsConnecting(false);
     }
   };
 
-  // UI-only disconnection - MetaMask doesn't support programmatic disconnection
+  // ---------------------------------------------------------------------------
+  // Disconnect (clears local state — MetaMask doesn't have a true disconnect)
+  // ---------------------------------------------------------------------------
   const disconnectWallet = () => {
     setAccount(null);
+    setChainId(null);
+    onConnect("");
   };
 
-  return (
-    <div className="border border-pink-500 rounded-lg p-4 shadow-md bg-white text-pink-500 max-w-sm mx-auto">
-      {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
+  // ---------------------------------------------------------------------------
+  // Switch to correct network
+  // ---------------------------------------------------------------------------
+  const switchNetwork = async () => {
+    if (!window.ethereum) return;
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: `0x${polkadotTestnet.id.toString(16)}` }],
+      });
+    } catch (err: any) {
+      // Chain not added yet — add it
+      if (err.code === 4902) {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: `0x${polkadotTestnet.id.toString(16)}`,
+              chainName: polkadotTestnet.name,
+              nativeCurrency: polkadotTestnet.nativeCurrency,
+              rpcUrls: [polkadotTestnet.rpcUrls.default.http[0]],
+            },
+          ],
+        });
+      }
+    }
+  };
 
+  const isWrongNetwork = chainId !== null && chainId !== polkadotTestnet.id;
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+  return (
+    <div className="relative">
       {!account ? (
-        <button
-          onClick={connectWallet}
-          className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 rounded-lg transition"
-        >
-          Connect Wallet
-        </button>
+        <div className="space-y-1">
+          <button
+            onClick={connectWallet}
+            disabled={isConnecting}
+            className="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-gray-600 disabled:cursor-not-allowed text-sm"
+          >
+            {isConnecting ? "Connecting..." : "Connect Wallet"}
+          </button>
+          {error && <p className="text-xs text-red-400">{error}</p>}
+        </div>
       ) : (
-        <div className="flex flex-col items-center">
-          <span className="text-sm font-mono bg-pink-100 px-2 py-1 rounded-md text-pink-700">
-            {`${account.substring(0, 6)}...${account.substring(38)}`}
-          </span>
+        <div className="text-right space-y-1">
+          <div className="text-xs text-gray-400">Connected</div>
+          <div className="text-sm font-mono text-pink-400">
+            {account.substring(0, 6)}...{account.substring(38)}
+          </div>
+          {isWrongNetwork && (
+            <button
+              onClick={switchNetwork}
+              className="text-xs bg-yellow-600 hover:bg-yellow-500 text-white px-2 py-1 rounded transition"
+            >
+              ⚠️ Switch to Polkadot Hub
+            </button>
+          )}
           <button
             onClick={disconnectWallet}
-            className="mt-3 w-full bg-gray-200 hover:bg-gray-300 text-pink-500 py-2 px-4 rounded-lg transition"
+            className="block text-xs text-gray-500 hover:text-gray-300 transition"
           >
             Disconnect
           </button>
-          {chainId !== polkadotTestnet.id && (
-            <button
-              onClick={switchNetwork}
-              className="mt-3 w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition"
-            >
-              Switch to Polkadot Testnet
-            </button>
-          )}
         </div>
       )}
     </div>

@@ -1,5 +1,10 @@
 "use client";
 
+// =============================================================================
+// TransactionFeed.tsx
+// Issue #9 — Improved loading skeleton, error state, and event legend.
+// =============================================================================
+
 import React, { useState, useEffect } from "react";
 import { publicClient } from "../utils/viem";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
@@ -32,27 +37,49 @@ const EVENT_COLORS: Record<string, string> = {
   CampaignClosed: "border-gray-500",
 };
 
+const EVENT_DESCRIPTIONS: Record<string, string> = {
+  CampaignCreated: "An NGO opened a new fundraising campaign",
+  DonationReceived: "A donor sent funds to a campaign",
+  WithdrawalToVendor: "An NGO sent funds to a whitelisted vendor",
+  VendorProposed: "A validator submitted a vendor for whitelisting",
+  VendorApprovalSigned: "A validator signed off on a vendor proposal",
+  VendorWhitelisted: "A vendor reached the approval threshold and is now whitelisted",
+  CampaignClosed: "An NGO closed a campaign",
+};
+
+const FeedSkeleton = () => (
+  <div className="rounded-xl border-l-4 border-gray-700 bg-gray-900 p-4 space-y-2 animate-pulse">
+    <div className="flex justify-between">
+      <div className="h-4 w-36 bg-gray-700 rounded" />
+      <div className="h-3 w-20 bg-gray-800 rounded" />
+    </div>
+    <div className="h-3 w-64 bg-gray-800 rounded" />
+    <div className="h-3 w-48 bg-gray-800 rounded" />
+  </div>
+);
+
 const TransactionFeed: React.FC = () => {
   const [events, setEvents] = useState<FeedEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string>("");
+  const [showLegend, setShowLegend] = useState(false);
 
   const fetchEvents = async () => {
     try {
       setLoading(true);
+      setFetchError("");
 
-      // Fetch all event types from the contract
       const logs = await publicClient.getLogs({
         address: CONTRACT_ADDRESS,
         fromBlock: 0n,
         toBlock: "latest",
       });
 
-      // Parse each log using the ABI
       const parsed: FeedEvent[] = [];
+      const { decodeEventLog } = await import("viem");
 
       for (const log of logs) {
         try {
-          const { decodeEventLog } = await import("viem");
           const decoded = decodeEventLog({
             abi: CONTRACT_ABI,
             data: log.data,
@@ -61,17 +88,11 @@ const TransactionFeed: React.FC = () => {
 
           const eventName = decoded.eventName as string;
           const args = decoded.args as Record<string, any>;
-
-          // Format args into readable strings
           const data: Record<string, string> = {};
+
           for (const [key, val] of Object.entries(args)) {
             if (typeof val === "bigint") {
-              // Try to detect if it's an amount (large number) or an ID (small number)
-              if (val > 1_000_000_000n) {
-                data[key] = `${formatEther(val)} PAS`;
-              } else {
-                data[key] = val.toString();
-              }
+              data[key] = val > 1_000_000_000n ? `${formatEther(val)} PAS` : val.toString();
             } else if (typeof val === "string") {
               data[key] = val;
             } else if (typeof val === "boolean") {
@@ -88,16 +109,15 @@ const TransactionFeed: React.FC = () => {
             data,
           });
         } catch {
-          // Skip logs that don't match our ABI (e.g., from other contracts)
           continue;
         }
       }
 
-      // Most recent first
       parsed.reverse();
       setEvents(parsed);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch events:", err);
+      setFetchError("Failed to load transaction history. Check your network connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -109,26 +129,61 @@ const TransactionFeed: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex justify-between items-start">
         <div>
           <h2 className="text-xl font-bold text-white">Public Transaction Feed</h2>
           <p className="text-sm text-gray-400 mt-1">
-            Every action on ClarityChain is public and permanent. Don't trust — verify.
+            Every action on ClarityChain is permanent and publicly visible. Don't trust — verify.
           </p>
         </div>
-        <button
-          onClick={fetchEvents}
-          className="text-sm text-pink-400 hover:text-pink-300 transition"
-        >
-          ↻ Refresh
-        </button>
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={() => setShowLegend(!showLegend)}
+            className="text-xs text-gray-400 hover:text-gray-200 border border-gray-700 px-2 py-1 rounded"
+          >
+            {showLegend ? "Hide" : "Legend"}
+          </button>
+          <button onClick={fetchEvents} className="text-sm text-pink-400 hover:text-pink-300 transition">
+            ↻ Refresh
+          </button>
+        </div>
       </div>
 
+      {/* Legend */}
+      {showLegend && (
+        <div className="rounded-xl border border-gray-700 bg-gray-900 p-4 space-y-2">
+          <p className="text-xs font-semibold text-gray-400 mb-2">Event Types</p>
+          {Object.entries(EVENT_DESCRIPTIONS).map(([type, desc]) => (
+            <div key={type} className="flex gap-2 text-xs">
+              <span className="shrink-0">{EVENT_ICONS[type]}</span>
+              <span className="text-gray-300 font-medium w-36 shrink-0">{type}</span>
+              <span className="text-gray-500">{desc}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Error state */}
+      {fetchError && (
+        <div className="rounded-xl border border-red-800 bg-red-900/30 p-4 text-sm text-red-300">
+          {fetchError}
+        </div>
+      )}
+
+      {/* Loading */}
       {loading ? (
-        <div className="text-center text-gray-400 py-12">Loading transaction history...</div>
+        <div className="space-y-3">
+          <FeedSkeleton />
+          <FeedSkeleton />
+          <FeedSkeleton />
+        </div>
       ) : events.length === 0 ? (
-        <div className="text-center text-gray-400 py-12">
-          No transactions yet. Create a campaign and make a donation to see them here.
+        <div className="rounded-xl border border-gray-700 bg-gray-900 p-12 text-center">
+          <p className="text-gray-400">No transactions yet.</p>
+          <p className="text-gray-600 text-sm mt-2">
+            Create a campaign and make a donation — they'll appear here.
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -137,7 +192,6 @@ const TransactionFeed: React.FC = () => {
               key={index}
               className={`rounded-xl border-l-4 bg-gray-900 p-4 ${EVENT_COLORS[event.type] || "border-gray-600"}`}
             >
-              {/* Event header */}
               <div className="flex justify-between items-start mb-2">
                 <span className="font-semibold text-white">
                   {EVENT_ICONS[event.type] || "📌"} {event.type}
@@ -145,7 +199,6 @@ const TransactionFeed: React.FC = () => {
                 <span className="text-xs text-gray-500">Block #{event.blockNumber.toString()}</span>
               </div>
 
-              {/* Event data */}
               <div className="space-y-1">
                 {Object.entries(event.data).map(([key, val]) => (
                   <div key={key} className="flex gap-2 text-sm flex-wrap">
@@ -155,10 +208,10 @@ const TransactionFeed: React.FC = () => {
                 ))}
               </div>
 
-              {/* Tx hash link */}
               {event.txHash && (
                 <a
-                  href={`https://blockscout-passet-hub.parity-testnet.parity.io/tx/${event.txHash}`}
+                  // href={`https://blockscout-passet-hub.parity-testnet.parity.io/tx/${event.txHash}`}
+                  href={`blockscout-testnet.polkadot.io/tx/${event.txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-pink-400 hover:text-pink-300 mt-2 block"

@@ -1,15 +1,5 @@
 import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
 import { configVariable, defineConfig } from "hardhat/config";
-import { defineChain } from "viem";
-
-const polkadotHub = defineChain({
-  id: 420420417,
-  name: "Polkadot Hub TestNet",
-  nativeCurrency: { name: "PAS", symbol: "PAS", decimals: 18 },
-  rpcUrls: {
-    default: { http: ["https://services.polkadothub-rpc.com/testnet"] },
-  },
-});
 
 export default defineConfig({
   plugins: [hardhatToolboxViemPlugin],
@@ -38,17 +28,32 @@ export default defineConfig({
       type: "edr-simulated",
       chainType: "op",
     },
-    sepolia: {
-      type: "http",
-      chainType: "l1",
-      url: configVariable("SEPOLIA_RPC_URL"),
-      accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
-    },
     polkadotTestNet: {
       type: "http",
       chainType: "l1",
       url: 'https://services.polkadothub-rpc.com/testnet',
       accounts: [configVariable("PRIVATE_KEY")],
     },
+    "polkadot-testnet": {
+      type: "http",
+      chainType: "l1",
+      url: "https://blockscout-testnet.polkadot.io/api/eth-rpc",
+      accounts: [configVariable("PRIVATE_KEY")],
+    },
+  },
+  etherscan: {
+    apiKey: {
+      "polkadot-testnet": "empty",
+    },
+    customChains: [
+      {
+        network: "polkadot-testnet",
+        chainId: 420420417,
+        urls: {
+          apiURL: "https://blockscout-testnet.polkadot.io/api",
+          browserURL: "https://blockscout-testnet.polkadot.io",
+        },
+      },
+    ],
   },
 });

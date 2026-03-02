@@ -92,7 +92,7 @@ export default function Home() {
         <br />
         Contract:{" "}
         <a
-          href={`https://blockscout-passet-hub.parity-testnet.parity.io/address/0x17ed98199e7f392c84e9c7fcb6260a48dbbea292`}
+          href={`https://blockscout-testnet.polkadot.io/address/0x17ed98199e7f392c84e9c7fcb6260a48dbbea292`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-pink-500 hover:text-pink-400"
