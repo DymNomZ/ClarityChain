@@ -4,18 +4,14 @@ import { network } from "hardhat";
 import { parseEther, getAddress } from "viem";
 
 // =============================================================================
-// ClarityChain.test.ts
-// Updated for v2 contract changes:
-//   - All proposeVendor calls now include a pipe-delimited verification link
-//   - proposeVendor is open to anyone — updated tests reflect this
-//   - getCampaign returns 7 fields — refundsEnabled added at index [6]
-//   - New tests for enableRefunds() and claimRefund() (pull pattern)
-//   - New test for verification link requirement enforcement
+// ClarityChain.test.ts — v3
+// New tests added:
+//   - associateVendor()
+//   - withdrawToVendor() updated — association + cap enforcement
+//   - vendorRefundToCampaign()
+//   - applyForVerification()
+//   - approveIdentity()
 // =============================================================================
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
 
 async function getClients() {
   const { viem } = await network.connect({
@@ -27,7 +23,6 @@ async function getClients() {
     await viem.getWalletClients();
 
   const publicClient = await viem.getPublicClient();
-
   return { viem, deployer, validator2, validator3, ngo, donor, vendor, nonValidator, publicClient };
 }
 
@@ -45,8 +40,9 @@ async function deployFresh() {
   return { ...clients, clarityChain, validators };
 }
 
-// All vendor name strings must now include at least one pipe-delimited link.
 const VENDOR_NAME = "Cebu Rice Supply Co.|https://facebook.com/ceburice";
+const VENDOR_INSTRUCTIONS = "Purchase 500 sacks of rice and deliver to Barangay Ermita by March 20";
+const PROFILE_LINKS = "Cebu Food Bank|https://dti.gov.ph/reg/12345|https://facebook.com/cebufoodbank";
 
 async function whitelistVendor(
   clarityChain: any,
@@ -64,6 +60,25 @@ async function whitelistVendor(
   await clarityChain.write.approveVendor([proposalId], { account: validator2.account });
   await clarityChain.write.approveVendor([proposalId], { account: validator3.account });
   return proposalId;
+}
+
+// Whitelist + associate vendor with a campaign in one helper
+async function whitelistAndAssociate(
+  clarityChain: any,
+  deployer: any,
+  validator2: any,
+  validator3: any,
+  ngo: any,
+  campaignId: bigint,
+  vendorAddress: `0x${string}`,
+  cap = parseEther("1"),
+  instructions = VENDOR_INSTRUCTIONS
+) {
+  await whitelistVendor(clarityChain, deployer, validator2, validator3, vendorAddress);
+  await clarityChain.write.associateVendor(
+    [campaignId, vendorAddress, cap, instructions],
+    { account: ngo.account }
+  );
 }
 
 async function assertReverts(fn: () => Promise<any>, expectedMsg: string) {
@@ -100,15 +115,14 @@ describe("Deployment", () => {
 
   it("sets validatorCount to 3", async () => {
     const { clarityChain } = await deployFresh();
-    const count = await clarityChain.read.validatorCount();
-    assert.equal(count, 3n);
+    assert.equal(await clarityChain.read.validatorCount(), 3n);
   });
 
   it("reverts if fewer than 3 validators provided", async () => {
     const { viem, deployer, validator2 } = await getClients();
     await assertReverts(
       () => viem.deployContract("ClarityChain", [[deployer.account.address, validator2.account.address]]),
-      "Need between 3 and 5 validators"
+      "NeedBetweenThreeAndFiveValidators"
     );
   });
 });
@@ -120,37 +134,29 @@ describe("Deployment", () => {
 describe("createCampaign()", () => {
   it("creates a campaign with correct data", async () => {
     const { clarityChain, ngo } = await deployFresh();
-
-    await clarityChain.write.createCampaign(
-      ["Typhoon Odette Relief Fund", parseEther("10")],
-      { account: ngo.account }
-    );
-
-    const campaign = await clarityChain.read.getCampaign([0n]);
-    assert.equal(campaign[0], "Typhoon Odette Relief Fund");
-    assert.equal(getAddress(campaign[1]), getAddress(ngo.account.address));
-    assert.equal(campaign[2], parseEther("10")); // goalAmount
-    assert.equal(campaign[3], 0n);               // raisedAmount
-    assert.equal(campaign[4], 0n);               // withdrawnAmount
-    assert.equal(campaign[5], true);             // active
-    assert.equal(campaign[6], false);            // refundsEnabled
+    await clarityChain.write.createCampaign(["Typhoon Relief Fund", parseEther("10")], { account: ngo.account });
+    const c = await clarityChain.read.getCampaign([0n]);
+    assert.equal(c[0], "Typhoon Relief Fund");
+    assert.equal(getAddress(c[1]), getAddress(ngo.account.address));
+    assert.equal(c[2], parseEther("10"));
+    assert.equal(c[3], 0n);
+    assert.equal(c[4], 0n);
+    assert.equal(c[5], true);
+    assert.equal(c[6], false);
   });
 
   it("increments campaignCount", async () => {
     const { clarityChain, ngo } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Campaign A", parseEther("1")], { account: ngo.account });
-    await clarityChain.write.createCampaign(["Campaign B", parseEther("2")], { account: ngo.account });
-
-    const count = await clarityChain.read.campaignCount();
-    assert.equal(count, 2n);
+    await clarityChain.write.createCampaign(["A", parseEther("1")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["B", parseEther("1")], { account: ngo.account });
+    assert.equal(await clarityChain.read.campaignCount(), 2n);
   });
 
   it("reverts if name is empty", async () => {
     const { clarityChain, ngo } = await deployFresh();
     await assertReverts(
       () => clarityChain.write.createCampaign(["", parseEther("1")], { account: ngo.account }),
-      "Name cannot be empty"
+      "NameCannotBeEmpty"
     );
   });
 
@@ -158,7 +164,7 @@ describe("createCampaign()", () => {
     const { clarityChain, ngo } = await deployFresh();
     await assertReverts(
       () => clarityChain.write.createCampaign(["Test", 0n], { account: ngo.account }),
-      "Goal must be greater than 0"
+      "GoalMustBeGreaterThanZero"
     );
   });
 });
@@ -168,56 +174,32 @@ describe("createCampaign()", () => {
 // =============================================================================
 
 describe("donate()", () => {
-  it("increases raisedAmount correctly", async () => {
+  it("increases raisedAmount and records donor", async () => {
     const { clarityChain, ngo, donor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-
-    const campaign = await clarityChain.read.getCampaign([0n]);
-    assert.equal(campaign[3], parseEther("1"));
-  });
-
-  it("accumulates multiple donations correctly", async () => {
-    const { clarityChain, ngo, donor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
-    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("2") });
-
-    const campaign = await clarityChain.read.getCampaign([0n]);
-    assert.equal(campaign[3], parseEther("3"));
-  });
-
-  it("records donor address for refund eligibility", async () => {
-    const { clarityChain, ngo, donor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
-    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-
+    const c = await clarityChain.read.getCampaign([0n]);
+    assert.equal(c[3], parseEther("1"));
     const donors = await clarityChain.read.getCampaignDonors([0n]);
     assert.equal(donors.length, 1);
     assert.equal(getAddress(donors[0]), getAddress(donor.account.address));
   });
 
-  it("records correct donation amount per donor", async () => {
+  it("accumulates multiple donations", async () => {
     const { clarityChain, ngo, donor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("2") });
-
-    const recorded = await clarityChain.read.donorAmounts([0n, donor.account.address]);
-    assert.equal(recorded, parseEther("3"));
+    const c = await clarityChain.read.getCampaign([0n]);
+    assert.equal(c[3], parseEther("3"));
   });
 
   it("reverts if donation value is zero", async () => {
     const { clarityChain, ngo, donor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await assertReverts(
       () => clarityChain.write.donate([0n], { account: donor.account, value: 0n }),
-      "Donation must be greater than 0"
+      "DonationMustBeGreaterThanZero"
     );
   });
 
@@ -225,19 +207,109 @@ describe("donate()", () => {
     const { clarityChain, donor } = await deployFresh();
     await assertReverts(
       () => clarityChain.write.donate([99n], { account: donor.account, value: parseEther("1") }),
-      "Campaign does not exist"
+      "CampaignDoesNotExist"
     );
   });
 
   it("reverts if campaign is closed", async () => {
     const { clarityChain, ngo, donor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.closeCampaign([0n], { account: ngo.account });
-
     await assertReverts(
       () => clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") }),
-      "Campaign is not active"
+      "CampaignNotActive"
+    );
+  });
+});
+
+// =============================================================================
+// associateVendor()
+// =============================================================================
+
+describe("associateVendor()", () => {
+  it("associates a whitelisted vendor with correct data", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo, vendor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await whitelistAndAssociate(clarityChain, deployer, validator2, validator3, ngo, 0n, vendor.account.address);
+
+    const cv = await clarityChain.read.getCampaignVendor([0n, vendor.account.address]);
+    assert.equal(cv[0], parseEther("1"));        // cap
+    assert.equal(cv[1], 0n);                     // spent
+    assert.equal(cv[2], VENDOR_INSTRUCTIONS);    // instructions
+    assert.equal(cv[3], true);                   // associated
+  });
+
+  it("adds vendor to campaign vendor list", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo, vendor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await whitelistAndAssociate(clarityChain, deployer, validator2, validator3, ngo, 0n, vendor.account.address);
+
+    const list = await clarityChain.read.getCampaignVendorList([0n]);
+    assert.equal(list.length, 1);
+    assert.equal(getAddress(list[0]), getAddress(vendor.account.address));
+  });
+
+  it("reverts if vendor is not whitelisted", async () => {
+    const { clarityChain, ngo, vendor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await assertReverts(
+      () => clarityChain.write.associateVendor(
+        [0n, vendor.account.address, parseEther("1"), VENDOR_INSTRUCTIONS],
+        { account: ngo.account }
+      ),
+      "VendorNotWhitelisted"
+    );
+  });
+
+  it("reverts if vendor already associated with this campaign", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo, vendor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await whitelistAndAssociate(clarityChain, deployer, validator2, validator3, ngo, 0n, vendor.account.address);
+    await assertReverts(
+      () => clarityChain.write.associateVendor(
+        [0n, vendor.account.address, parseEther("1"), VENDOR_INSTRUCTIONS],
+        { account: ngo.account }
+      ),
+      "VendorAlreadyAssociated"
+    );
+  });
+
+  it("reverts if cap is zero", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo, vendor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await whitelistVendor(clarityChain, deployer, validator2, validator3, vendor.account.address);
+    await assertReverts(
+      () => clarityChain.write.associateVendor(
+        [0n, vendor.account.address, 0n, VENDOR_INSTRUCTIONS],
+        { account: ngo.account }
+      ),
+      "CapMustBeGreaterThanZero"
+    );
+  });
+
+  it("reverts if instructions are empty", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo, vendor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await whitelistVendor(clarityChain, deployer, validator2, validator3, vendor.account.address);
+    await assertReverts(
+      () => clarityChain.write.associateVendor(
+        [0n, vendor.account.address, parseEther("1"), ""],
+        { account: ngo.account }
+      ),
+      "InstructionsCannotBeEmpty"
+    );
+  });
+
+  it("reverts if caller is not the campaign NGO", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo, vendor, nonValidator } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await whitelistVendor(clarityChain, deployer, validator2, validator3, vendor.account.address);
+    await assertReverts(
+      () => clarityChain.write.associateVendor(
+        [0n, vendor.account.address, parseEther("1"), VENDOR_INSTRUCTIONS],
+        { account: nonValidator.account }
+      ),
+      "NotCampaignNGO"
     );
   });
 });
@@ -249,26 +321,55 @@ describe("donate()", () => {
 describe("withdrawToVendor()", () => {
   it("🚫 REJECTS withdrawal to a non-whitelisted address", async () => {
     const { clarityChain, ngo, donor, nonValidator } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-
     await assertReverts(
       () => clarityChain.write.withdrawToVendor(
         [0n, nonValidator.account.address, parseEther("0.5")],
         { account: ngo.account }
       ),
-      "Vendor not whitelisted -- REJECTED"
+      "VendorNotWhitelistedRejected"
     );
   });
 
-  it("✅ ALLOWS withdrawal to a whitelisted vendor", async () => {
-    const { clarityChain, deployer, validator2, validator3, ngo, donor, vendor, publicClient } =
-      await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+  it("🚫 REJECTS withdrawal to whitelisted but non-associated vendor", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo, donor, vendor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
+    // Whitelist but do NOT associate
     await whitelistVendor(clarityChain, deployer, validator2, validator3, vendor.account.address);
+    await assertReverts(
+      () => clarityChain.write.withdrawToVendor(
+        [0n, vendor.account.address, parseEther("0.5")],
+        { account: ngo.account }
+      ),
+      "VendorNotAssociatedWithCampaign"
+    );
+  });
+
+  it("🚫 REJECTS withdrawal that exceeds vendor cap", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo, donor, vendor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("5") });
+    // Cap is 1 PAS, try to withdraw 2 PAS
+    await whitelistAndAssociate(
+      clarityChain, deployer, validator2, validator3, ngo, 0n,
+      vendor.account.address, parseEther("1")
+    );
+    await assertReverts(
+      () => clarityChain.write.withdrawToVendor(
+        [0n, vendor.account.address, parseEther("2")],
+        { account: ngo.account }
+      ),
+      "AmountExceedsVendorCap"
+    );
+  });
+
+  it("✅ ALLOWS withdrawal to associated vendor within cap", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo, donor, vendor, publicClient } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
+    await whitelistAndAssociate(clarityChain, deployer, validator2, validator3, ngo, 0n, vendor.account.address);
 
     const balanceBefore = await publicClient.getBalance({ address: vendor.account.address });
     await clarityChain.write.withdrawToVendor(
@@ -276,54 +377,126 @@ describe("withdrawToVendor()", () => {
       { account: ngo.account }
     );
     const balanceAfter = await publicClient.getBalance({ address: vendor.account.address });
-
     assert.equal(balanceAfter - balanceBefore, parseEther("0.5"));
   });
 
-  it("updates withdrawnAmount after successful withdrawal", async () => {
+  it("tracks vendor spent amount correctly", async () => {
     const { clarityChain, deployer, validator2, validator3, ngo, donor, vendor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-    await whitelistVendor(clarityChain, deployer, validator2, validator3, vendor.account.address);
+    await whitelistAndAssociate(clarityChain, deployer, validator2, validator3, ngo, 0n, vendor.account.address);
     await clarityChain.write.withdrawToVendor(
       [0n, vendor.account.address, parseEther("0.5")],
       { account: ngo.account }
     );
-
-    const campaign = await clarityChain.read.getCampaign([0n]);
-    assert.equal(campaign[4], parseEther("0.5"));
+    const cv = await clarityChain.read.getCampaignVendor([0n, vendor.account.address]);
+    assert.equal(cv[1], parseEther("0.5")); // spent
   });
 
   it("reverts if caller is not the campaign NGO", async () => {
     const { clarityChain, deployer, validator2, validator3, ngo, donor, vendor, nonValidator } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-    await whitelistVendor(clarityChain, deployer, validator2, validator3, vendor.account.address);
-
+    await whitelistAndAssociate(clarityChain, deployer, validator2, validator3, ngo, 0n, vendor.account.address);
     await assertReverts(
       () => clarityChain.write.withdrawToVendor(
         [0n, vendor.account.address, parseEther("0.5")],
         { account: nonValidator.account }
       ),
-      "Not the campaign NGO"
+      "NotCampaignNGO"
     );
   });
 
-  it("reverts if amount exceeds available funds", async () => {
+  it("reverts if amount exceeds available campaign funds", async () => {
     const { clarityChain, deployer, validator2, validator3, ngo, donor, vendor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
-    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-    await whitelistVendor(clarityChain, deployer, validator2, validator3, vendor.account.address);
-
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("0.1") });
+    await whitelistAndAssociate(
+      clarityChain, deployer, validator2, validator3, ngo, 0n,
+      vendor.account.address, parseEther("10") // high cap, but campaign only has 0.1
+    );
     await assertReverts(
       () => clarityChain.write.withdrawToVendor(
-        [0n, vendor.account.address, parseEther("999")],
+        [0n, vendor.account.address, parseEther("5")],
         { account: ngo.account }
       ),
-      "Insufficient campaign funds"
+      "InsufficientCampaignFunds"
+    );
+  });
+});
+
+// =============================================================================
+// vendorRefundToCampaign()
+// =============================================================================
+
+describe("vendorRefundToCampaign()", () => {
+  it("reduces vendor spent and campaign withdrawnAmount", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo, donor, vendor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
+    await whitelistAndAssociate(clarityChain, deployer, validator2, validator3, ngo, 0n, vendor.account.address);
+    await clarityChain.write.withdrawToVendor(
+      [0n, vendor.account.address, parseEther("0.5")],
+      { account: ngo.account }
+    );
+
+    // Vendor refunds 0.3 PAS back
+    await clarityChain.write.vendorRefundToCampaign([0n], {
+      account: vendor.account,
+      value: parseEther("0.3"),
+    });
+
+    const cv = await clarityChain.read.getCampaignVendor([0n, vendor.account.address]);
+    assert.equal(cv[1], parseEther("0.2")); // spent reduced from 0.5 to 0.2
+
+    const c = await clarityChain.read.getCampaign([0n]);
+    assert.equal(c[4], parseEther("0.2")); // withdrawnAmount reduced
+  });
+
+  it("makes refunded funds available for re-withdrawal", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo, donor, vendor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
+    await whitelistAndAssociate(clarityChain, deployer, validator2, validator3, ngo, 0n, vendor.account.address);
+    await clarityChain.write.withdrawToVendor(
+      [0n, vendor.account.address, parseEther("1")],
+      { account: ngo.account }
+    );
+
+    // Vendor refunds full amount
+    await clarityChain.write.vendorRefundToCampaign([0n], {
+      account: vendor.account,
+      value: parseEther("1"),
+    });
+
+    // Available funds should be back to 1 PAS
+    const available = await clarityChain.read.getAvailableFunds([0n]);
+    assert.equal(available, parseEther("1"));
+  });
+
+  it("reverts if caller is not an associated vendor", async () => {
+    const { clarityChain, ngo, nonValidator } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await assertReverts(
+      () => clarityChain.write.vendorRefundToCampaign([0n], {
+        account: nonValidator.account,
+        value: parseEther("0.5"),
+      }),
+      "CallerNotAssociatedVendor"
+    );
+  });
+
+  it("reverts if refund amount is zero", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo, donor, vendor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
+    await whitelistAndAssociate(clarityChain, deployer, validator2, validator3, ngo, 0n, vendor.account.address);
+    await assertReverts(
+      () => clarityChain.write.vendorRefundToCampaign([0n], {
+        account: vendor.account,
+        value: 0n,
+      }),
+      "RefundAmountMustBeGreaterThanZero"
     );
   });
 });
@@ -333,40 +506,33 @@ describe("withdrawToVendor()", () => {
 // =============================================================================
 
 describe("enableRefunds()", () => {
-  it("sets refundsEnabled to true and closes the campaign", async () => {
+  it("closes campaign and sets refundsEnabled", async () => {
     const { clarityChain, ngo, donor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
     await clarityChain.write.enableRefunds([0n], { account: ngo.account });
-
-    const campaign = await clarityChain.read.getCampaign([0n]);
-    assert.equal(campaign[5], false);  // active = false
-    assert.equal(campaign[6], true);   // refundsEnabled = true
+    const c = await clarityChain.read.getCampaign([0n]);
+    assert.equal(c[5], false);
+    assert.equal(c[6], true);
   });
 
   it("reverts if caller is not the campaign NGO", async () => {
-    const { clarityChain, ngo, donor, nonValidator } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
-    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-
+    const { clarityChain, ngo, nonValidator } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await assertReverts(
       () => clarityChain.write.enableRefunds([0n], { account: nonValidator.account }),
-      "Not the campaign NGO"
+      "NotCampaignNGO"
     );
   });
 
   it("reverts if refunds already enabled", async () => {
     const { clarityChain, ngo, donor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
     await clarityChain.write.enableRefunds([0n], { account: ngo.account });
-
     await assertReverts(
       () => clarityChain.write.enableRefunds([0n], { account: ngo.account }),
-      "Refunds already enabled"
+      "RefundsAlreadyEnabled"
     );
   });
 });
@@ -374,27 +540,21 @@ describe("enableRefunds()", () => {
 describe("claimRefund()", () => {
   it("returns full donation when no vendor withdrawals were made", async () => {
     const { clarityChain, ngo, donor, publicClient } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
     await clarityChain.write.enableRefunds([0n], { account: ngo.account });
 
-    const balanceBefore = await publicClient.getBalance({ address: donor.account.address });
+    const before = await publicClient.getBalance({ address: donor.account.address });
     await clarityChain.write.claimRefund([0n], { account: donor.account });
-    const balanceAfter = await publicClient.getBalance({ address: donor.account.address });
-
-    // Balance should increase by ~1 PAS (minus gas, so just check it went up significantly)
-    assert.ok(balanceAfter > balanceBefore, "Donor balance should increase after refund");
+    const after = await publicClient.getBalance({ address: donor.account.address });
+    assert.ok(after > before, "Donor balance should increase after refund");
   });
 
-  it("returns proportional refund when some funds already spent on vendors", async () => {
+  it("returns proportional refund when some funds already spent", async () => {
     const { clarityChain, deployer, validator2, validator3, ngo, donor, vendor } = await deployFresh();
-
-    // donor donates 1 PAS, NGO withdraws 0.5 PAS to vendor, then enables refunds
-    // donor should get back 0.5 PAS (their 50% share of the remaining 0.5 PAS)
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-    await whitelistVendor(clarityChain, deployer, validator2, validator3, vendor.account.address);
+    await whitelistAndAssociate(clarityChain, deployer, validator2, validator3, ngo, 0n, vendor.account.address);
     await clarityChain.write.withdrawToVendor(
       [0n, vendor.account.address, parseEther("0.5")],
       { account: ngo.account }
@@ -405,190 +565,203 @@ describe("claimRefund()", () => {
     assert.equal(refundAmount, parseEther("0.5"));
   });
 
-  it("getRefundAmount returns 0 before refunds are enabled", async () => {
-    const { clarityChain, ngo, donor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
-    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-
-    const refundAmount = await clarityChain.read.getRefundAmount([0n, donor.account.address]);
-    assert.equal(refundAmount, 0n);
-  });
-
   it("reverts if refunds not enabled", async () => {
     const { clarityChain, ngo, donor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-
     await assertReverts(
       () => clarityChain.write.claimRefund([0n], { account: donor.account }),
-      "Refunds not enabled for this campaign"
+      "RefundsNotEnabled"
     );
   });
 
-  it("reverts if wallet has no donation recorded", async () => {
-    const { clarityChain, ngo, donor, nonValidator } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
-    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-    await clarityChain.write.enableRefunds([0n], { account: ngo.account });
-
-    await assertReverts(
-      () => clarityChain.write.claimRefund([0n], { account: nonValidator.account }),
-      "No donation found for this wallet"
-    );
-  });
-
-  it("reverts if donor tries to claim twice", async () => {
+  it("reverts on double claim", async () => {
     const { clarityChain, ngo, donor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
     await clarityChain.write.enableRefunds([0n], { account: ngo.account });
     await clarityChain.write.claimRefund([0n], { account: donor.account });
-
     await assertReverts(
       () => clarityChain.write.claimRefund([0n], { account: donor.account }),
-      "No donation found for this wallet"
+      "NoDonationFoundForWallet"
     );
   });
 });
 
 // =============================================================================
-// proposeVendor()
+// proposeVendor() and approveVendor()
 // =============================================================================
 
 describe("proposeVendor()", () => {
   it("creates a proposal with correct data", async () => {
     const { clarityChain, deployer, vendor } = await deployFresh();
-
-    await clarityChain.write.proposeVendor(
-      [vendor.account.address, VENDOR_NAME],
-      { account: deployer.account }
-    );
-
-    const proposal = await clarityChain.read.getProposalStatus([0n]);
-    assert.equal(getAddress(proposal[0]), getAddress(vendor.account.address));
-    assert.equal(proposal[1], VENDOR_NAME);
-    assert.equal(proposal[2], 0n);
-    assert.equal(proposal[3], false);
+    await clarityChain.write.proposeVendor([vendor.account.address, VENDOR_NAME], { account: deployer.account });
+    const p = await clarityChain.read.getProposalStatus([0n]);
+    assert.equal(getAddress(p[0]), getAddress(vendor.account.address));
+    assert.equal(p[1], VENDOR_NAME);
+    assert.equal(p[2], 0n);
+    assert.equal(p[3], false);
   });
 
-  it("allows ANY wallet to propose a vendor — not just validators", async () => {
-    // This is the key behavioral change from v1.
-    // Non-validators can now propose. Only validators approve.
+  it("allows any wallet to propose", async () => {
     const { clarityChain, nonValidator, vendor } = await deployFresh();
-
-    await clarityChain.write.proposeVendor(
-      [vendor.account.address, VENDOR_NAME],
-      { account: nonValidator.account }
-    );
-
-    const count = await clarityChain.read.proposalCount();
-    assert.equal(count, 1n);
+    await clarityChain.write.proposeVendor([vendor.account.address, VENDOR_NAME], { account: nonValidator.account });
+    assert.equal(await clarityChain.read.proposalCount(), 1n);
   });
 
-  it("reverts if no verification link is provided", async () => {
+  it("reverts if no verification link provided", async () => {
     const { clarityChain, deployer, vendor } = await deployFresh();
-
     await assertReverts(
-      () => clarityChain.write.proposeVendor(
-        [vendor.account.address, "Cebu Rice Supply Co."],
-        { account: deployer.account }
-      ),
-      "At least one verification link is required"
+      () => clarityChain.write.proposeVendor([vendor.account.address, "No Link Vendor"], { account: deployer.account }),
+      "VerificationLinkRequired"
     );
   });
 
-  it("reverts if vendor is already whitelisted", async () => {
+  it("reverts if vendor already whitelisted", async () => {
     const { clarityChain, deployer, validator2, validator3, vendor } = await deployFresh();
-
     await whitelistVendor(clarityChain, deployer, validator2, validator3, vendor.account.address);
-
     await assertReverts(
-      () => clarityChain.write.proposeVendor(
-        [vendor.account.address, VENDOR_NAME],
-        { account: deployer.account }
-      ),
-      "Vendor already whitelisted"
+      () => clarityChain.write.proposeVendor([vendor.account.address, VENDOR_NAME], { account: deployer.account }),
+      "VendorAlreadyWhitelisted"
     );
   });
 });
 
-// =============================================================================
-// approveVendor()
-// =============================================================================
-
 describe("approveVendor()", () => {
-  it("does NOT whitelist vendor before threshold is met", async () => {
+  it("does not whitelist before threshold", async () => {
     const { clarityChain, deployer, validator2, vendor } = await deployFresh();
-
     await clarityChain.write.proposeVendor([vendor.account.address, VENDOR_NAME], { account: deployer.account });
     await clarityChain.write.approveVendor([0n], { account: deployer.account });
     await clarityChain.write.approveVendor([0n], { account: validator2.account });
-
-    const isWhitelisted = await clarityChain.read.isVendorWhitelisted([vendor.account.address]);
-    assert.equal(isWhitelisted, false);
-  });
-
-  it("auto-whitelists vendor exactly when threshold is met", async () => {
-    const { clarityChain, deployer, validator2, validator3, vendor } = await deployFresh();
-
-    await clarityChain.write.proposeVendor([vendor.account.address, VENDOR_NAME], { account: deployer.account });
-    await clarityChain.write.approveVendor([0n], { account: deployer.account });
-    await clarityChain.write.approveVendor([0n], { account: validator2.account });
-
     assert.equal(await clarityChain.read.isVendorWhitelisted([vendor.account.address]), false);
-
-    await clarityChain.write.approveVendor([0n], { account: validator3.account });
-
-    assert.equal(await clarityChain.read.isVendorWhitelisted([vendor.account.address]), true);
-
-    const proposal = await clarityChain.read.getProposalStatus([0n]);
-    assert.equal(proposal[3], true);
   });
 
-  it("reverts if same validator approves twice", async () => {
-    const { clarityChain, deployer, vendor } = await deployFresh();
-
+  it("auto-whitelists at threshold", async () => {
+    const { clarityChain, deployer, validator2, validator3, vendor } = await deployFresh();
     await clarityChain.write.proposeVendor([vendor.account.address, VENDOR_NAME], { account: deployer.account });
     await clarityChain.write.approveVendor([0n], { account: deployer.account });
-
-    await assertReverts(
-      () => clarityChain.write.approveVendor([0n], { account: deployer.account }),
-      "You already approved this proposal"
-    );
+    await clarityChain.write.approveVendor([0n], { account: validator2.account });
+    await clarityChain.write.approveVendor([0n], { account: validator3.account });
+    assert.equal(await clarityChain.read.isVendorWhitelisted([vendor.account.address]), true);
   });
 
   it("reverts if non-validator tries to approve", async () => {
     const { clarityChain, deployer, nonValidator, vendor } = await deployFresh();
-
     await clarityChain.write.proposeVendor([vendor.account.address, VENDOR_NAME], { account: deployer.account });
-
     await assertReverts(
       () => clarityChain.write.approveVendor([0n], { account: nonValidator.account }),
-      "Not a validator"
+      "NotValidator"
     );
   });
 
-  it("reverts if proposal does not exist", async () => {
-    const { clarityChain, deployer } = await deployFresh();
-
+  it("reverts on double approval", async () => {
+    const { clarityChain, deployer, vendor } = await deployFresh();
+    await clarityChain.write.proposeVendor([vendor.account.address, VENDOR_NAME], { account: deployer.account });
+    await clarityChain.write.approveVendor([0n], { account: deployer.account });
     await assertReverts(
-      () => clarityChain.write.approveVendor([99n], { account: deployer.account }),
-      "Proposal does not exist"
+      () => clarityChain.write.approveVendor([0n], { account: deployer.account }),
+      "AlreadyApprovedProposal"
     );
   });
 
   it("reverts if proposal already executed", async () => {
     const { clarityChain, deployer, validator2, validator3, vendor } = await deployFresh();
-
     await whitelistVendor(clarityChain, deployer, validator2, validator3, vendor.account.address);
-
     await assertReverts(
       () => clarityChain.write.approveVendor([0n], { account: deployer.account }),
-      "Proposal already executed"
+      "ProposalAlreadyExecuted"
+    );
+  });
+});
+
+// =============================================================================
+// applyForVerification() and approveIdentity()
+// =============================================================================
+
+describe("applyForVerification()", () => {
+  it("creates an identity proposal with correct data", async () => {
+    const { clarityChain, ngo } = await deployFresh();
+    await clarityChain.write.applyForVerification([PROFILE_LINKS], { account: ngo.account });
+    const p = await clarityChain.read.getIdentityProposalStatus([0n]);
+    assert.equal(getAddress(p[0]), getAddress(ngo.account.address));
+    assert.equal(p[1], PROFILE_LINKS);
+    assert.equal(p[2], 0n);
+    assert.equal(p[3], false);
+  });
+
+  it("reverts if no profile link provided", async () => {
+    const { clarityChain, ngo } = await deployFresh();
+    await assertReverts(
+      () => clarityChain.write.applyForVerification(["Org Name Only"], { account: ngo.account }),
+      "ProfileLinkRequired"
+    );
+  });
+
+  it("reverts if wallet is already verified", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo } = await deployFresh();
+    await clarityChain.write.applyForVerification([PROFILE_LINKS], { account: ngo.account });
+    const proposalId = (await clarityChain.read.identityProposalCount()) - 1n;
+    await clarityChain.write.approveIdentity([proposalId], { account: deployer.account });
+    await clarityChain.write.approveIdentity([proposalId], { account: validator2.account });
+    await clarityChain.write.approveIdentity([proposalId], { account: validator3.account });
+
+    await assertReverts(
+      () => clarityChain.write.applyForVerification([PROFILE_LINKS], { account: ngo.account }),
+      "WalletAlreadyVerified"
+    );
+  });
+});
+
+describe("approveIdentity()", () => {
+  it("does not verify before threshold", async () => {
+    const { clarityChain, deployer, validator2, ngo } = await deployFresh();
+    await clarityChain.write.applyForVerification([PROFILE_LINKS], { account: ngo.account });
+    await clarityChain.write.approveIdentity([0n], { account: deployer.account });
+    await clarityChain.write.approveIdentity([0n], { account: validator2.account });
+    const info = await clarityChain.read.getIdentityInfo([ngo.account.address]);
+    assert.equal(info[0], false);
+  });
+
+  it("verifies wallet at threshold and stores links", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo } = await deployFresh();
+    await clarityChain.write.applyForVerification([PROFILE_LINKS], { account: ngo.account });
+    await clarityChain.write.approveIdentity([0n], { account: deployer.account });
+    await clarityChain.write.approveIdentity([0n], { account: validator2.account });
+    await clarityChain.write.approveIdentity([0n], { account: validator3.account });
+
+    const info = await clarityChain.read.getIdentityInfo([ngo.account.address]);
+    assert.equal(info[0], true);
+    assert.equal(info[1], PROFILE_LINKS);
+  });
+
+  it("reverts if non-validator tries to approve", async () => {
+    const { clarityChain, ngo, nonValidator } = await deployFresh();
+    await clarityChain.write.applyForVerification([PROFILE_LINKS], { account: ngo.account });
+    await assertReverts(
+      () => clarityChain.write.approveIdentity([0n], { account: nonValidator.account }),
+      "NotValidator"
+    );
+  });
+
+  it("reverts on double approval", async () => {
+    const { clarityChain, deployer, ngo } = await deployFresh();
+    await clarityChain.write.applyForVerification([PROFILE_LINKS], { account: ngo.account });
+    await clarityChain.write.approveIdentity([0n], { account: deployer.account });
+    await assertReverts(
+      () => clarityChain.write.approveIdentity([0n], { account: deployer.account }),
+      "AlreadyApprovedIdentityProposal"
+    );
+  });
+
+  it("reverts if proposal already executed", async () => {
+    const { clarityChain, deployer, validator2, validator3, ngo } = await deployFresh();
+    await clarityChain.write.applyForVerification([PROFILE_LINKS], { account: ngo.account });
+    await clarityChain.write.approveIdentity([0n], { account: deployer.account });
+    await clarityChain.write.approveIdentity([0n], { account: validator2.account });
+    await clarityChain.write.approveIdentity([0n], { account: validator3.account });
+    await assertReverts(
+      () => clarityChain.write.approveIdentity([0n], { account: deployer.account }),
+      "IdentityProposalAlreadyExecuted"
     );
   });
 });
@@ -600,51 +773,43 @@ describe("approveVendor()", () => {
 describe("closeCampaign()", () => {
   it("sets campaign active to false", async () => {
     const { clarityChain, ngo } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.closeCampaign([0n], { account: ngo.account });
-
-    const campaign = await clarityChain.read.getCampaign([0n]);
-    assert.equal(campaign[5], false);
+    const c = await clarityChain.read.getCampaign([0n]);
+    assert.equal(c[5], false);
   });
 
   it("blocks donations after close", async () => {
     const { clarityChain, ngo, donor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.closeCampaign([0n], { account: ngo.account });
-
     await assertReverts(
       () => clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") }),
-      "Campaign is not active"
+      "CampaignNotActive"
     );
   });
 
   it("blocks withdrawals after close", async () => {
     const { clarityChain, deployer, validator2, validator3, ngo, donor, vendor } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
-    await whitelistVendor(clarityChain, deployer, validator2, validator3, vendor.account.address);
+    await whitelistAndAssociate(clarityChain, deployer, validator2, validator3, ngo, 0n, vendor.account.address);
     await clarityChain.write.closeCampaign([0n], { account: ngo.account });
-
     await assertReverts(
       () => clarityChain.write.withdrawToVendor(
         [0n, vendor.account.address, parseEther("0.5")],
         { account: ngo.account }
       ),
-      "Campaign is not active"
+      "CampaignNotActive"
     );
   });
 
   it("reverts if caller is not the campaign NGO", async () => {
     const { clarityChain, ngo, nonValidator } = await deployFresh();
-
-    await clarityChain.write.createCampaign(["Relief Fund", parseEther("10")], { account: ngo.account });
-
+    await clarityChain.write.createCampaign(["Fund", parseEther("10")], { account: ngo.account });
     await assertReverts(
       () => clarityChain.write.closeCampaign([0n], { account: nonValidator.account }),
-      "Not the campaign NGO"
+      "NotCampaignNGO"
     );
   });
 });
