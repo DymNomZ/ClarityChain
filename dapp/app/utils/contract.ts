@@ -2,7 +2,7 @@ import { getContract } from 'viem';
 import { publicClient, getWalletClient } from './viem';
 import ClarityChainABI from '../../abis/ClarityChain.json';
 
-export const CONTRACT_ADDRESS = '0x17ed98199e7f392c84e9c7fcb6260a48dbbea292' as `0x${string}`;
+export const CONTRACT_ADDRESS = '0xfa26ab4f40387ddaae9c338abbb9984678ce0c29' as `0x${string}`;
 export const CONTRACT_ABI = ClarityChainABI.abi;
 
 // Create a function to get a contract instance for reading
