@@ -8,14 +8,11 @@
 // =============================================================================
 
 import React, { useState, useEffect } from "react";
-import { publicClient, getWalletClient, polkadotTestnet } from "../utils/viem";
+import { polkadotTestnet } from "../utils/viem";
+import { useAuth } from "../contexts/AuthContext";
 
-interface WalletConnectProps {
-  onConnect: (account: string) => void;
-}
-
-const WalletConnect: React.FC<WalletConnectProps> = ({ onConnect }) => {
-  const [account, setAccount] = useState<string | null>(null);
+const WalletConnect: React.FC = () => {
+  const { account, setAccount } = useAuth()
   const [chainId, setChainId] = useState<number | null>(null);
   const [error, setError] = useState<string>("");
   const [isConnecting, setIsConnecting] = useState(false);
@@ -30,11 +27,9 @@ const WalletConnect: React.FC<WalletConnectProps> = ({ onConnect }) => {
       if (accounts.length === 0) {
         // User disconnected all accounts
         setAccount(null);
-        onConnect("");
       } else {
         const newAccount = accounts[0];
         setAccount(newAccount);
-        onConnect(newAccount);
       }
     };
 
@@ -51,7 +46,7 @@ const WalletConnect: React.FC<WalletConnectProps> = ({ onConnect }) => {
       window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
       window.ethereum.removeListener("chainChanged", handleChainChanged);
     };
-  }, [onConnect]);
+  }, [setAccount]);
 
   // ---------------------------------------------------------------------------
   // Check if already connected on mount
@@ -66,7 +61,6 @@ const WalletConnect: React.FC<WalletConnectProps> = ({ onConnect }) => {
 
         if (accounts.length > 0) {
           setAccount(accounts[0]);
-          onConnect(accounts[0]);
           const chainIdHex = (await window.ethereum.request({
             method: "eth_chainId",
           })) as string;
@@ -104,7 +98,6 @@ const WalletConnect: React.FC<WalletConnectProps> = ({ onConnect }) => {
 
       setAccount(accounts[0]);
       setChainId(currentChainId);
-      onConnect(accounts[0]);
     } catch (err: any) {
       if (err.code === 4001) {
         setError("Connection cancelled.");
@@ -122,7 +115,6 @@ const WalletConnect: React.FC<WalletConnectProps> = ({ onConnect }) => {
   const disconnectWallet = () => {
     setAccount(null);
     setChainId(null);
-    onConnect("");
   };
 
   // ---------------------------------------------------------------------------
