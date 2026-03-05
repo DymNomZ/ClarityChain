@@ -9,6 +9,7 @@ import React, { useState, useEffect } from "react";
 import { publicClient } from "../utils/viem";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
 import { formatEther } from "viem";
+import NavigationBar from "../components/NavigationBar";
 
 interface FeedEvent {
   type: string;
@@ -127,103 +128,106 @@ const TransactionFeed: React.FC = () => {
     fetchEvents();
   }, []);
 
-  return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-xl font-bold text-white">Public Transaction Feed</h2>
-          <p className="text-sm text-gray-400 mt-1">
-            Every action on ClarityChain is permanent and publicly visible. Don't trust — verify.
-          </p>
-        </div>
-        <div className="flex gap-2 items-center">
-          <button
-            onClick={() => setShowLegend(!showLegend)}
-            className="text-xs text-gray-400 hover:text-gray-200 border border-gray-700 px-2 py-1 rounded"
-          >
-            {showLegend ? "Hide" : "Legend"}
-          </button>
-          <button onClick={fetchEvents} className="text-sm text-pink-400 hover:text-pink-300 transition">
-            ↻ Refresh
-          </button>
-        </div>
-      </div>
-
-      {/* Legend */}
-      {showLegend && (
-        <div className="rounded-xl border border-gray-700 bg-gray-900 p-4 space-y-2">
-          <p className="text-xs font-semibold text-gray-400 mb-2">Event Types</p>
-          {Object.entries(EVENT_DESCRIPTIONS).map(([type, desc]) => (
-            <div key={type} className="flex gap-2 text-xs">
-              <span className="shrink-0">{EVENT_ICONS[type]}</span>
-              <span className="text-gray-300 font-medium w-36 shrink-0">{type}</span>
-              <span className="text-gray-500">{desc}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Error state */}
-      {fetchError && (
-        <div className="rounded-xl border border-red-800 bg-red-900/30 p-4 text-sm text-red-300">
-          {fetchError}
-        </div>
-      )}
-
-      {/* Loading */}
-      {loading ? (
-        <div className="space-y-3">
-          <FeedSkeleton />
-          <FeedSkeleton />
-          <FeedSkeleton />
-        </div>
-      ) : events.length === 0 ? (
-        <div className="rounded-xl border border-gray-700 bg-gray-900 p-12 text-center">
-          <p className="text-gray-400">No transactions yet.</p>
-          <p className="text-gray-600 text-sm mt-2">
-            Create a campaign and make a donation — they'll appear here.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {events.map((event, index) => (
-            <div
-              key={index}
-              className={`rounded-xl border-l-4 bg-gray-900 p-4 ${EVENT_COLORS[event.type] || "border-gray-600"}`}
+  return <>
+    <NavigationBar activeTab="feed" />
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex justify-between items-start">
+          <div>
+            <h2 className="text-xl font-bold text-white">Public Transaction Feed</h2>
+            <p className="text-sm text-gray-400 mt-1">
+              Every action on ClarityChain is permanent and publicly visible. Don't trust — verify.
+            </p>
+          </div>
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => setShowLegend(!showLegend)}
+              className="text-xs text-gray-400 hover:text-gray-200 border border-gray-700 px-2 py-1 rounded"
             >
-              <div className="flex justify-between items-start mb-2">
-                <span className="font-semibold text-white">
-                  {EVENT_ICONS[event.type] || "📌"} {event.type}
-                </span>
-                <span className="text-xs text-gray-500">Block #{event.blockNumber.toString()}</span>
-              </div>
-
-              <div className="space-y-1">
-                {Object.entries(event.data).map(([key, val]) => (
-                  <div key={key} className="flex gap-2 text-sm flex-wrap">
-                    <span className="text-gray-400 capitalize min-w-[100px]">{key}:</span>
-                    <span className="text-gray-200 break-all">{val}</span>
-                  </div>
-                ))}
-              </div>
-
-              {event.txHash && (
-                <a
-                  href={`https://blockscout-testnet.polkadot.io/tx/${event.txHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-pink-400 hover:text-pink-300 mt-2 block"
-                >
-                  View on explorer ↗ {event.txHash.slice(0, 20)}...
-                </a>
-              )}
-            </div>
-          ))}
+              {showLegend ? "Hide" : "Legend"}
+            </button>
+            <button onClick={fetchEvents} className="text-sm text-pink-400 hover:text-pink-300 transition">
+              ↻ Refresh
+            </button>
+          </div>
         </div>
-      )}
+
+        {/* Legend */}
+        {showLegend && (
+          <div className="rounded-xl border border-gray-700 bg-gray-900 p-4 space-y-2">
+            <p className="text-xs font-semibold text-gray-400 mb-2">Event Types</p>
+            {Object.entries(EVENT_DESCRIPTIONS).map(([type, desc]) => (
+              <div key={type} className="flex gap-2 text-xs">
+                <span className="shrink-0">{EVENT_ICONS[type]}</span>
+                <span className="text-gray-300 font-medium w-36 shrink-0">{type}</span>
+                <span className="text-gray-500">{desc}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Error state */}
+        {fetchError && (
+          <div className="rounded-xl border border-red-800 bg-red-900/30 p-4 text-sm text-red-300">
+            {fetchError}
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading ? (
+          <div className="space-y-3">
+            <FeedSkeleton />
+            <FeedSkeleton />
+            <FeedSkeleton />
+          </div>
+        ) : events.length === 0 ? (
+          <div className="rounded-xl border border-gray-700 bg-gray-900 p-12 text-center">
+            <p className="text-gray-400">No transactions yet.</p>
+            <p className="text-gray-600 text-sm mt-2">
+              Create a campaign and make a donation — they'll appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {events.map((event, index) => (
+              <div
+                key={index}
+                className={`rounded-xl border-l-4 bg-gray-900 p-4 ${EVENT_COLORS[event.type] || "border-gray-600"}`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <span className="font-semibold text-white">
+                    {EVENT_ICONS[event.type] || "📌"} {event.type}
+                  </span>
+                  <span className="text-xs text-gray-500">Block #{event.blockNumber.toString()}</span>
+                </div>
+
+                <div className="space-y-1">
+                  {Object.entries(event.data).map(([key, val]) => (
+                    <div key={key} className="flex gap-2 text-sm flex-wrap">
+                      <span className="text-gray-400 capitalize min-w-[100px]">{key}:</span>
+                      <span className="text-gray-200 break-all">{val}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {event.txHash && (
+                  <a
+                    href={`https://blockscout-testnet.polkadot.io/tx/${event.txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-pink-400 hover:text-pink-300 mt-2 block"
+                  >
+                    View on explorer ↗ {event.txHash.slice(0, 20)}...
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
-  );
+  </>;
 };
 
 export default TransactionFeed;

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { publicClient, getWalletClient } from "../utils/viem";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
 import { parseEther, formatEther } from "viem";
+import { useAuth } from "../contexts/AuthContext";
 
 interface Campaign {
   id: number;
@@ -13,11 +14,7 @@ interface Campaign {
   active: boolean;
 }
 
-interface WithdrawToVendorProps {
-  account: string | null;
-}
-
-const WithdrawToVendor: React.FC<WithdrawToVendorProps> = ({ account }) => {
+const WithdrawToVendor: React.FC = () => {
   const [myCampaigns, setMyCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<number | "">("");
   const [vendorAddress, setVendorAddress] = useState("");
@@ -29,6 +26,7 @@ const WithdrawToVendor: React.FC<WithdrawToVendorProps> = ({ account }) => {
     message: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { account } = useAuth();
 
   // Fetch only campaigns owned by the connected wallet
   useEffect(() => {
