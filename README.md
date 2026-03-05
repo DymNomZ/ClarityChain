@@ -209,9 +209,9 @@ ClarityChain/
 
 | Network | Address |
 |---------|---------|
-| Polkadot Hub TestNet (Passet Hub) | `0x17ed98199e7f392c84e9c7fcb6260a48dbbea292` |
+| Polkadot Hub TestNet (Passet Hub) | `0xfa26ab4f40387ddaae9c338abbb9984678ce0c29` |
 
-Block Explorer (verified ✅): https://blockscout-testnet.polkadot.io/address/0x17ed98199e7f392c84e9c7fcb6260a48dbbea292
+Block Explorer (verified ✅): https://blockscout-testnet.polkadot.io/address/0xfa26ab4f40387ddaae9c338abbb9984678ce0c29
 
 The contract source code is verified on Blockscout. Anyone can read the Solidity directly on the explorer and confirm it does exactly what this README describes.
 

@@ -7,12 +7,12 @@ export default function PageFooter() {
             <br />
             Contract:{" "}
             <a
-            href={`https://blockscout-testnet.polkadot.io/address/0x17ed98199e7f392c84e9c7fcb6260a48dbbea292`}
+            href={`https://blockscout-testnet.polkadot.io/address/0xfa26ab4f40387ddaae9c338abbb9984678ce0c29`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-pink-500 hover:text-pink-400"
             >
-            0x17ed98199e7f392c84e9c7fcb6260a48dbbea292
+            0xfa26ab4f40387ddaae9c338abbb9984678ce0c29
             </a>
         </footer>
     )
