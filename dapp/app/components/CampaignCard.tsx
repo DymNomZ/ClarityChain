@@ -141,12 +141,14 @@ export default function CampaignCard({campaign, fetchCampaigns, setCampaignModal
                         placeholder="Amount (PAS)"
                         value={donation}
                         onChange={(e) => handleOnChange(e)}
+                        onDoubleClick={(e) => e.stopPropagation()}
                         disabled={submitting || !account}
                         className="flex-1 p-2 rounded-lg bg-gray-800 border border-gray-600 text-white placeholder-gray-500 focus:outline-none focus:border-pink-500"
                     />
                     <button
                         onClick={() => handleDonate(campaign.id)}
                         disabled={submitting || !account}
+                        onDoubleClick={(e) => e.stopPropagation()}
                         className="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-gray-600 disabled:cursor-not-allowed"
                     >
                     {submitting ? "..." : "Donate"}
