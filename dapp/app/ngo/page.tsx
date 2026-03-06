@@ -5,6 +5,7 @@ import { publicClient, getWalletClient } from "../utils/viem";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
 import { parseEther } from "viem";
 import { useAuth } from "../contexts/AuthContext";
+import AssociateVendor from "../components/AssociateVendor";
 import WithdrawToVendor from "../components/WithdrawToVendor";
 import NavigationBar from "../components/NavigationBar";
 
@@ -68,23 +69,24 @@ const CreateCampaign: React.FC = () => {
     <NavigationBar activeTab="ngo" />
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="space-y-8">
+
+        {/* Step 1: Create Campaign */}
         <div className="rounded-xl border border-pink-500 bg-gray-900 p-6 space-y-4 max-w-lg mx-auto">
-          <h2 className="text-xl font-bold text-white">Create a Campaign</h2>
+          <div>
+            <p className="text-xs font-semibold text-pink-400 uppercase tracking-widest mb-1">Step 1</p>
+            <h2 className="text-xl font-bold text-white">Create a Campaign</h2>
+          </div>
           <p className="text-sm text-gray-400">
             Your wallet becomes the NGO for this campaign. You'll be the only one who can
-            withdraw funds — but only to whitelisted vendors.
+            withdraw funds — but only to associated, whitelisted vendors.
           </p>
 
           {status.message && (
-            <div
-              className={`text-sm p-3 rounded-lg break-words ${
-                status.type === "error"
-                  ? "bg-red-900 text-red-300"
-                  : status.type === "success"
-                  ? "bg-green-900 text-green-300"
-                  : "bg-blue-900 text-blue-300"
-              }`}
-            >
+            <div className={`text-sm p-3 rounded-lg break-words ${
+              status.type === "error" ? "bg-red-900 text-red-300"
+              : status.type === "success" ? "bg-green-900 text-green-300"
+              : "bg-blue-900 text-blue-300"
+            }`}>
               {status.message}
             </div>
           )}
@@ -129,7 +131,19 @@ const CreateCampaign: React.FC = () => {
             )}
           </div>
         </div>
-        <WithdrawToVendor />
+
+        {/* Step 2: Associate Vendor */}
+        <div className="max-w-lg mx-auto">
+          <p className="text-xs font-semibold text-pink-400 uppercase tracking-widest mb-3 px-1">Step 2</p>
+          <AssociateVendor />
+        </div>
+
+        {/* Step 3: Withdraw */}
+        <div className="max-w-lg mx-auto">
+          <p className="text-xs font-semibold text-pink-400 uppercase tracking-widest mb-3 px-1">Step 3</p>
+          <WithdrawToVendor />
+        </div>
+
       </div>
     </div>
   </>;

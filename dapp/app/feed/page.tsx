@@ -1,10 +1,5 @@
 "use client";
 
-// =============================================================================
-// TransactionFeed.tsx
-// Issue #9 — Improved loading skeleton, error state, and event legend.
-// =============================================================================
-
 import React, { useState, useEffect } from "react";
 import { publicClient } from "../utils/viem";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
@@ -22,30 +17,51 @@ const EVENT_ICONS: Record<string, string> = {
   CampaignCreated: "🏕️",
   DonationReceived: "💰",
   WithdrawalToVendor: "✅",
+  VendorAssociated: "🔗",
+  VendorRefundedCampaign: "↩️",
   VendorProposed: "📋",
   VendorApprovalSigned: "✍️",
   VendorWhitelisted: "🟢",
   CampaignClosed: "🔒",
+  RefundsEnabled: "🔁",
+  RefundClaimed: "💸",
+  IdentityVerificationApplied: "🪪",
+  IdentityVerificationSigned: "✍️",
+  IdentityVerified: "✔️",
 };
 
 const EVENT_COLORS: Record<string, string> = {
   CampaignCreated: "border-blue-600",
   DonationReceived: "border-green-600",
   WithdrawalToVendor: "border-pink-500",
+  VendorAssociated: "border-purple-500",
+  VendorRefundedCampaign: "border-orange-500",
   VendorProposed: "border-yellow-600",
   VendorApprovalSigned: "border-yellow-400",
   VendorWhitelisted: "border-green-400",
   CampaignClosed: "border-gray-500",
+  RefundsEnabled: "border-yellow-600",
+  RefundClaimed: "border-blue-400",
+  IdentityVerificationApplied: "border-indigo-500",
+  IdentityVerificationSigned: "border-indigo-400",
+  IdentityVerified: "border-teal-400",
 };
 
 const EVENT_DESCRIPTIONS: Record<string, string> = {
   CampaignCreated: "An NGO opened a new fundraising campaign",
   DonationReceived: "A donor sent funds to a campaign",
-  WithdrawalToVendor: "An NGO sent funds to a whitelisted vendor",
-  VendorProposed: "A validator submitted a vendor for whitelisting",
+  WithdrawalToVendor: "An NGO sent funds to a whitelisted, associated vendor",
+  VendorAssociated: "An NGO linked a vendor to their campaign with a cap and procurement instructions",
+  VendorRefundedCampaign: "A vendor returned funds to the originating campaign",
+  VendorProposed: "A wallet submitted a vendor for community whitelisting",
   VendorApprovalSigned: "A validator signed off on a vendor proposal",
   VendorWhitelisted: "A vendor reached the approval threshold and is now whitelisted",
   CampaignClosed: "An NGO closed a campaign",
+  RefundsEnabled: "An NGO enabled refund mode — donors can now claim their proportional refund",
+  RefundClaimed: "A donor claimed their refund from a closed campaign",
+  IdentityVerificationApplied: "A wallet applied for identity verification",
+  IdentityVerificationSigned: "A validator signed an identity verification proposal",
+  IdentityVerified: "A wallet was verified by validator multi-sig",
 };
 
 const FeedSkeleton = () => (
@@ -93,6 +109,7 @@ const TransactionFeed: React.FC = () => {
 
           for (const [key, val] of Object.entries(args)) {
             if (typeof val === "bigint") {
+              // Amounts are in wei — only format as PAS if they look like token amounts
               data[key] = val > 1_000_000_000n ? `${formatEther(val)} PAS` : val.toString();
             } else if (typeof val === "string") {
               data[key] = val;
@@ -132,7 +149,6 @@ const TransactionFeed: React.FC = () => {
     <NavigationBar activeTab="feed" />
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="space-y-4">
-        {/* Header */}
         <div className="flex justify-between items-start">
           <div>
             <h2 className="text-xl font-bold text-white">Public Transaction Feed</h2>
@@ -153,28 +169,25 @@ const TransactionFeed: React.FC = () => {
           </div>
         </div>
 
-        {/* Legend */}
         {showLegend && (
           <div className="rounded-xl border border-gray-700 bg-gray-900 p-4 space-y-2">
             <p className="text-xs font-semibold text-gray-400 mb-2">Event Types</p>
             {Object.entries(EVENT_DESCRIPTIONS).map(([type, desc]) => (
               <div key={type} className="flex gap-2 text-xs">
                 <span className="shrink-0">{EVENT_ICONS[type]}</span>
-                <span className="text-gray-300 font-medium w-36 shrink-0">{type}</span>
+                <span className="text-gray-300 font-medium w-48 shrink-0">{type}</span>
                 <span className="text-gray-500">{desc}</span>
               </div>
             ))}
           </div>
         )}
 
-        {/* Error state */}
         {fetchError && (
           <div className="rounded-xl border border-red-800 bg-red-900/30 p-4 text-sm text-red-300">
             {fetchError}
           </div>
         )}
 
-        {/* Loading */}
         {loading ? (
           <div className="space-y-3">
             <FeedSkeleton />
@@ -205,7 +218,7 @@ const TransactionFeed: React.FC = () => {
                 <div className="space-y-1">
                   {Object.entries(event.data).map(([key, val]) => (
                     <div key={key} className="flex gap-2 text-sm flex-wrap">
-                      <span className="text-gray-400 capitalize min-w-[100px]">{key}:</span>
+                      <span className="text-gray-400 capitalize min-w-[120px]">{key}:</span>
                       <span className="text-gray-200 break-all">{val}</span>
                     </div>
                   ))}

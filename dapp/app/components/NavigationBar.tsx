@@ -26,7 +26,7 @@ export default function NavigationBar({ activeTab }: NavigationBarProps) {
     return (
         <div className="border-b border-gray-800 bg-gray-900 sticky top-0 z-10">
             <div className="max-w-5xl mx-auto px-4">
-                <div className="flex gap-1">
+                <div className="flex gap-1 justify-center">
                 {tabs.map((tab) => (
                     <button
                     key={tab.id}
