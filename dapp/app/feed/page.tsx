@@ -1,15 +1,11 @@
 "use client";
 
-// =============================================================================
-// TransactionFeed.tsx
-// Issue #9 — Improved loading skeleton, error state, and event legend.
-// =============================================================================
-
 import React, { useState, useEffect } from "react";
 import { publicClient } from "../utils/viem";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
 import { formatEther } from "viem";
 import NavigationBar from "../components/NavigationBar";
+import { getValidatorProfile } from "../utils/validators";
 
 interface FeedEvent {
   type: string;
@@ -22,30 +18,51 @@ const EVENT_ICONS: Record<string, string> = {
   CampaignCreated: "🏕️",
   DonationReceived: "💰",
   WithdrawalToVendor: "✅",
+  VendorAssociated: "🔗",
+  VendorRefundedCampaign: "↩️",
   VendorProposed: "📋",
   VendorApprovalSigned: "✍️",
   VendorWhitelisted: "🟢",
   CampaignClosed: "🔒",
+  RefundsEnabled: "🔁",
+  RefundClaimed: "💸",
+  IdentityVerificationApplied: "🪪",
+  IdentityVerificationSigned: "✍️",
+  IdentityVerified: "✔️",
 };
 
 const EVENT_COLORS: Record<string, string> = {
   CampaignCreated: "border-blue-600",
   DonationReceived: "border-green-600",
   WithdrawalToVendor: "border-pink-500",
+  VendorAssociated: "border-purple-500",
+  VendorRefundedCampaign: "border-orange-500",
   VendorProposed: "border-yellow-600",
   VendorApprovalSigned: "border-yellow-400",
   VendorWhitelisted: "border-green-400",
   CampaignClosed: "border-gray-500",
+  RefundsEnabled: "border-yellow-600",
+  RefundClaimed: "border-blue-400",
+  IdentityVerificationApplied: "border-indigo-500",
+  IdentityVerificationSigned: "border-indigo-400",
+  IdentityVerified: "border-teal-400",
 };
 
 const EVENT_DESCRIPTIONS: Record<string, string> = {
   CampaignCreated: "An NGO opened a new fundraising campaign",
   DonationReceived: "A donor sent funds to a campaign",
-  WithdrawalToVendor: "An NGO sent funds to a whitelisted vendor",
-  VendorProposed: "A validator submitted a vendor for whitelisting",
+  WithdrawalToVendor: "An NGO sent funds to a whitelisted, associated vendor",
+  VendorAssociated: "An NGO linked a vendor to their campaign with a cap and procurement instructions",
+  VendorRefundedCampaign: "A vendor returned funds to the originating campaign",
+  VendorProposed: "A wallet submitted a vendor for community whitelisting",
   VendorApprovalSigned: "A validator signed off on a vendor proposal",
   VendorWhitelisted: "A vendor reached the approval threshold and is now whitelisted",
   CampaignClosed: "An NGO closed a campaign",
+  RefundsEnabled: "An NGO enabled refund mode — donors can now claim their proportional refund",
+  RefundClaimed: "A donor claimed their refund from a closed campaign",
+  IdentityVerificationApplied: "A wallet applied for identity verification",
+  IdentityVerificationSigned: "A validator signed an identity verification proposal",
+  IdentityVerified: "A wallet was verified by validator multi-sig",
 };
 
 const FeedSkeleton = () => (
@@ -58,6 +75,99 @@ const FeedSkeleton = () => (
     <div className="h-3 w-48 bg-gray-800 rounded" />
   </div>
 );
+
+// Address-type fields that may belong to a known validator or verified identity.
+const ADDRESS_FIELDS = new Set(["validator", "ngo", "donor", "vendor", "proposedby", "applicant"]);
+
+interface IdentityInfo {
+  name: string;
+  links: string[];
+  isValidator: boolean;
+}
+
+// Renders a feed event field. For address fields:
+//   - Known validators  → name in pink  + "who is this?"
+//   - Verified NGOs/individuals → name in cyan + "who is this?"
+const ValidatorAwareField: React.FC<{ fieldKey: string; value: string }> = ({ fieldKey, value }) => {
+  const [showLinks, setShowLinks] = React.useState(false);
+  const [identity, setIdentity] = React.useState<IdentityInfo | null>(null);
+
+  React.useEffect(() => {
+    if (!value.startsWith("0x") || !ADDRESS_FIELDS.has(fieldKey.toLowerCase())) return;
+
+    // Check validator map first — synchronous, no RPC needed
+    const validatorProfile = getValidatorProfile(value);
+    if (validatorProfile) {
+      setIdentity({ name: validatorProfile.name, links: validatorProfile.links, isValidator: true });
+      return;
+    }
+
+    // Fall through to on-chain identity check
+    const checkOnChain = async () => {
+      try {
+        const { publicClient } = await import("../utils/viem");
+        const { CONTRACT_ADDRESS, CONTRACT_ABI } = await import("../utils/contract");
+        const result = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: "getIdentityInfo",
+          args: [value as `0x${string}`],
+        }) as [boolean, string];
+
+        if (result[0]) {
+          const parts = result[1].split("|");
+          const name = parts[0];
+          const links = parts.slice(1).filter((l: string) => l.startsWith("http"));
+          setIdentity({ name, links, isValidator: false });
+        }
+      } catch {
+        // Not verified — leave identity null
+      }
+    };
+    checkOnChain();
+  }, [fieldKey, value]);
+
+  return (
+    <div className="flex gap-2 text-sm flex-wrap items-start">
+      <span className="text-gray-400 capitalize min-w-[120px]">{fieldKey}:</span>
+      <span className="flex flex-col gap-0.5">
+        <span className="flex items-center gap-2 flex-wrap">
+          <span className="text-gray-200 break-all">{value}</span>
+          {identity && (
+            <>
+              <span className={`font-semibold text-xs ${identity.isValidator ? "text-pink-400" : "text-cyan-400"}`}>
+                ({identity.name})
+              </span>
+              {identity.links.length > 0 && (
+                <button
+                  onClick={() => setShowLinks((p) => !p)}
+                  className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                >
+                  who is this?
+                </button>
+              )}
+            </>
+          )}
+        </span>
+        {showLinks && identity && (
+          <span className="flex flex-col gap-0.5 pl-1">
+            {identity.links.map((link, i) => (
+              <a
+                key={i}
+                href={link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2 truncate max-w-xs"
+              >
+                ↗ {link}
+              </a>
+            ))}
+          </span>
+        )}
+      </span>
+    </div>
+  );
+};
 
 const TransactionFeed: React.FC = () => {
   const [events, setEvents] = useState<FeedEvent[]>([]);
@@ -93,6 +203,7 @@ const TransactionFeed: React.FC = () => {
 
           for (const [key, val] of Object.entries(args)) {
             if (typeof val === "bigint") {
+              // Amounts are in wei — only format as PAS if they look like token amounts
               data[key] = val > 1_000_000_000n ? `${formatEther(val)} PAS` : val.toString();
             } else if (typeof val === "string") {
               data[key] = val;
@@ -132,7 +243,6 @@ const TransactionFeed: React.FC = () => {
     <NavigationBar activeTab="feed" />
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="space-y-4">
-        {/* Header */}
         <div className="flex justify-between items-start">
           <div>
             <h2 className="text-xl font-bold text-white">Public Transaction Feed</h2>
@@ -153,28 +263,25 @@ const TransactionFeed: React.FC = () => {
           </div>
         </div>
 
-        {/* Legend */}
         {showLegend && (
           <div className="rounded-xl border border-gray-700 bg-gray-900 p-4 space-y-2">
             <p className="text-xs font-semibold text-gray-400 mb-2">Event Types</p>
             {Object.entries(EVENT_DESCRIPTIONS).map(([type, desc]) => (
               <div key={type} className="flex gap-2 text-xs">
                 <span className="shrink-0">{EVENT_ICONS[type]}</span>
-                <span className="text-gray-300 font-medium w-36 shrink-0">{type}</span>
+                <span className="text-gray-300 font-medium w-48 shrink-0">{type}</span>
                 <span className="text-gray-500">{desc}</span>
               </div>
             ))}
           </div>
         )}
 
-        {/* Error state */}
         {fetchError && (
           <div className="rounded-xl border border-red-800 bg-red-900/30 p-4 text-sm text-red-300">
             {fetchError}
           </div>
         )}
 
-        {/* Loading */}
         {loading ? (
           <div className="space-y-3">
             <FeedSkeleton />
@@ -204,10 +311,7 @@ const TransactionFeed: React.FC = () => {
 
                 <div className="space-y-1">
                   {Object.entries(event.data).map(([key, val]) => (
-                    <div key={key} className="flex gap-2 text-sm flex-wrap">
-                      <span className="text-gray-400 capitalize min-w-[100px]">{key}:</span>
-                      <span className="text-gray-200 break-all">{val}</span>
-                    </div>
+                    <ValidatorAwareField key={key} fieldKey={key} value={val} />
                   ))}
                 </div>
 

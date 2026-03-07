@@ -1,19 +1,12 @@
 "use client";
 
-// =============================================================================
-// VendorManagement.tsx
-// Issue #1  — Vendor verification links (3 optional URL fields encoded into
-//             the vendor name string as "Name|url1|url2|url3")
-// Issue #9  — Improved error handling + loading skeleton + disable approve
-//             button if current wallet already signed
-// =============================================================================
-
 import React, { useState, useEffect } from "react";
 import { publicClient, getWalletClient } from "../utils/viem";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
 import { parseContractError } from "../utils/errors";
 import { useAuth } from "../contexts/AuthContext";
 import NavigationBar from "../components/NavigationBar";
+import IdentityProposals from "../components/IdentityProposals";
 
 const DELIMITER = "|";
 
@@ -65,7 +58,7 @@ const VendorManagement: React.FC = () => {
   const [approveStatus, setApproveStatus] = useState<Record<number, { type: string; message: string }>>({});
   const [approvingId, setApprovingId] = useState<number | null>(null);
   const [alreadySigned, setAlreadySigned] = useState<Record<number, boolean>>({});
-  const {account} = useAuth();
+  const { account } = useAuth();
 
   const REQUIRED_APPROVALS = 3;
 
@@ -112,7 +105,7 @@ const VendorManagement: React.FC = () => {
           executed: result[3],
         });
       }
-      setProposals(fetched);
+      setProposals([...fetched].reverse());
     } catch (err) {
       console.error("Failed to fetch proposals:", err);
     } finally {
@@ -157,8 +150,13 @@ const VendorManagement: React.FC = () => {
     setVerificationLinks(updated);
   };
 
+  // At least one link is required — mirrors the contract's _containsPipe check.
   const validateLinks = (): boolean => {
     const filled = verificationLinks.filter((l) => l.trim().length > 0);
+    if (filled.length === 0) {
+      setProposeStatus({ type: "error", message: "At least one verification link is required (DTI registration, Facebook page, official website, etc.)" });
+      return false;
+    }
     for (const link of filled) {
       if (!link.startsWith("https://") && !link.startsWith("http://")) {
         setProposeStatus({ type: "error", message: "Verification links must be valid URLs starting with https://" });
@@ -168,9 +166,10 @@ const VendorManagement: React.FC = () => {
     return true;
   };
 
+  // Anyone can propose a vendor — no validator check needed here.
   const handlePropose = async () => {
-    if (!account || !isValidator) {
-      setProposeStatus({ type: "error", message: "Only validators can propose vendors." });
+    if (!account) {
+      setProposeStatus({ type: "error", message: "Connect your wallet first." });
       return;
     }
     if (!newVendorName.trim()) {
@@ -203,7 +202,7 @@ const VendorManagement: React.FC = () => {
       const hash = await walletClient.writeContract(request);
       setProposeStatus({ type: "info", message: "Waiting for confirmation..." });
       await publicClient.waitForTransactionReceipt({ hash });
-      setProposeStatus({ type: "success", message: `Vendor proposed! ${REQUIRED_APPROVALS - 1} more approvals needed.` });
+      setProposeStatus({ type: "success", message: "Vendor proposal submitted! Validators will review and sign." });
       setNewVendorName("");
       setNewVendorAddress("");
       setVerificationLinks(["", "", ""]);
@@ -216,7 +215,6 @@ const VendorManagement: React.FC = () => {
   };
 
   const handleApprove = async (proposalId: number) => {
-    if (!account || !isValidator) return;
     try {
       setApprovingId(proposalId);
       setApproveStatus({ ...approveStatus, [proposalId]: { type: "info", message: "Confirm in your wallet..." } });
@@ -248,19 +246,24 @@ const VendorManagement: React.FC = () => {
     <NavigationBar activeTab="vendors" />
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="space-y-8">
+
+        {/* Validator status indicator */}
         {account && (
           <div className={`text-sm p-3 rounded-lg ${isValidator ? "bg-green-900 text-green-300" : "bg-gray-800 text-gray-400"}`}>
             {isValidator
-              ? "✅ Your wallet is a validator. You can propose and approve vendors."
-              : "ℹ️ Your wallet is not a validator. You can view proposals but cannot sign them."}
+              ? "✅ Your wallet is a validator. You can sign vendor approvals."
+              : "ℹ️ Your wallet is not a validator. Anyone can propose a vendor below — validators review and approve."}
           </div>
         )}
 
-        {isValidator && (
-          <div className="rounded-xl border border-pink-500 bg-gray-900 p-6 space-y-4 max-w-lg">
+        {/* Propose form — open to EVERYONE */}
+        {account && (
+          <div className="rounded-xl border border-pink-500 bg-gray-900 p-6 space-y-4 max-w-lg mx-auto">
             <h2 className="text-xl font-bold text-white">Propose a Vendor</h2>
             <p className="text-sm text-gray-400">
-              {REQUIRED_APPROVALS} validator signatures are required before a vendor can receive funds.
+              Anyone can submit a vendor for community review. Validators independently
+              verify the submitted links and sign their approval. {REQUIRED_APPROVALS} signatures
+              are required before a vendor can receive funds.
             </p>
 
             {proposeStatus.message && (
@@ -275,7 +278,9 @@ const VendorManagement: React.FC = () => {
 
             <div className="space-y-3">
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Vendor Name <span className="text-red-400">*</span></label>
+                <label className="block text-sm text-gray-400 mb-1">
+                  Vendor Name <span className="text-red-400">*</span>
+                </label>
                 <input
                   type="text"
                   placeholder="e.g., Cebu Rice Supply Co."
@@ -287,7 +292,9 @@ const VendorManagement: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Vendor Wallet Address <span className="text-red-400">*</span></label>
+                <label className="block text-sm text-gray-400 mb-1">
+                  Vendor Wallet Address <span className="text-red-400">*</span>
+                </label>
                 <input
                   type="text"
                   placeholder="0x..."
@@ -300,18 +307,24 @@ const VendorManagement: React.FC = () => {
 
               <div className="space-y-2">
                 <label className="block text-sm text-gray-400">
-                  Vendor Verification Links <span className="text-gray-600">(optional)</span>
+                  Verification Links <span className="text-red-400">*</span>{" "}
+                  <span className="text-gray-600 text-xs">(at least one required)</span>
                 </label>
-                <p className="text-xs text-gray-600">DTI registration, Facebook page, official website, etc.</p>
+                <p className="text-xs text-gray-600">
+                  DTI registration, Facebook business page, official website, etc.
+                  Validators use these to verify legitimacy.
+                </p>
                 {verificationLinks.map((link, i) => (
                   <input
                     key={i}
                     type="url"
-                    placeholder={`https://`}
+                    placeholder={i === 0 ? "https://  (required)" : "https://  (optional)"}
                     value={link}
                     onChange={(e) => handleLinkChange(i, e.target.value)}
                     disabled={isSubmitting}
-                    className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 text-white placeholder-gray-500 focus:outline-none focus:border-pink-500 text-sm"
+                    className={`w-full p-3 rounded-lg bg-gray-800 border text-white placeholder-gray-500 focus:outline-none focus:border-pink-500 text-sm ${
+                      i === 0 ? "border-gray-500" : "border-gray-700"
+                    }`}
                   />
                 ))}
               </div>
@@ -327,6 +340,13 @@ const VendorManagement: React.FC = () => {
           </div>
         )}
 
+        {!account && (
+          <div className="rounded-xl border border-gray-700 bg-gray-900 p-6 text-center">
+            <p className="text-gray-400 text-sm">Connect your wallet to propose or approve vendors.</p>
+          </div>
+        )}
+
+        {/* Proposals list */}
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold text-white">Vendor Proposals</h2>
@@ -411,6 +431,9 @@ const VendorManagement: React.FC = () => {
             ))
           )}
         </div>
+
+        {/* Identity Verification Proposals — visible to validators only */}
+        <IdentityProposals />
       </div>
     </div>
   </>;

@@ -6,4 +6,5 @@ interface Campaign {
   raisedAmount: bigint;
   withdrawnAmount: bigint;
   active: boolean;
+  refundsEnabled: boolean;
 }

@@ -1,11 +1,5 @@
 "use client";
 
-// =============================================================================
-// CampaignList.tsx
-// Issue #9 — Improved loading skeleton, better error messages via
-//            parseContractError, network check before donating.
-// =============================================================================
-
 import React, { useState, useEffect } from "react";
 import { publicClient } from "../utils/viem";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
@@ -48,12 +42,13 @@ const CampaignList: React.FC = () => {
 
       const fetched: Campaign[] = [];
       for (let i = 0; i < Number(count); i++) {
+        // getCampaign now returns 7 fields — refundsEnabled added at index [6]
         const result = (await publicClient.readContract({
           address: CONTRACT_ADDRESS,
           abi: CONTRACT_ABI,
           functionName: "getCampaign",
           args: [BigInt(i)],
-        })) as [string, string, bigint, bigint, bigint, boolean];
+        })) as [string, string, bigint, bigint, bigint, boolean, boolean];
 
         fetched.push({
           id: i,
@@ -63,6 +58,7 @@ const CampaignList: React.FC = () => {
           raisedAmount: result[3],
           withdrawnAmount: result[4],
           active: result[5],
+          refundsEnabled: result[6],
         });
       }
       setCampaigns(fetched);
@@ -83,7 +79,7 @@ const CampaignList: React.FC = () => {
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-white">Active Campaigns</h2>
+            <h2 className="text-xl font-bold text-white">Campaigns</h2>
           </div>
           <CampaignSkeleton />
           <CampaignSkeleton />
@@ -109,7 +105,7 @@ const CampaignList: React.FC = () => {
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-bold text-white">Active Campaigns</h2>
+          <h2 className="text-xl font-bold text-white">Campaigns</h2>
           <button onClick={fetchCampaigns} className="text-sm text-pink-400 hover:text-pink-300 transition">
             ↻ Refresh
           </button>

@@ -23,9 +23,9 @@ dotenv.config();
 // All three need to be MetaMask wallets connected to Passet Hub.
 // -----------------------------------------------------------------------------
 const VALIDATORS: `0x${string}`[] = [
-  "0x75c71fBb2048Df9461f27ae7476Db45FddFfa1D7",   // Dymes
-  "0x7077Bd1b0ee55F4A7a2B3FEf4c916e35B8547B7F",  // Dymes2
-  "0xe8ff0f4efae291263b1438C9c6441f6a6c9Eb0e2",   // Dymes3
+  "0x75c71fBb2048Df9461f27ae7476Db45FddFfa1D7",
+  "0x7077Bd1b0ee55F4A7a2B3FEf4c916e35B8547B7F",
+  "0xe8ff0f4efae291263b1438C9c6441f6a6c9Eb0e2",
 ];
 
 // Custom chain definition — matches your existing viem.ts in the dapp
