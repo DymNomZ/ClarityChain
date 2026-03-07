@@ -6,6 +6,7 @@ import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
 import { parseContractError } from "../utils/errors";
 import { useAuth } from "../contexts/AuthContext";
 import NavigationBar from "../components/NavigationBar";
+import IdentityProposals from "../components/IdentityProposals";
 
 const DELIMITER = "|";
 
@@ -104,7 +105,7 @@ const VendorManagement: React.FC = () => {
           executed: result[3],
         });
       }
-      setProposals(fetched);
+      setProposals([...fetched].reverse());
     } catch (err) {
       console.error("Failed to fetch proposals:", err);
     } finally {
@@ -430,6 +431,9 @@ const VendorManagement: React.FC = () => {
             ))
           )}
         </div>
+
+        {/* Identity Verification Proposals — visible to validators only */}
+        <IdentityProposals />
       </div>
     </div>
   </>;

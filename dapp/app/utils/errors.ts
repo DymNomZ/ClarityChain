@@ -1,6 +1,7 @@
 // =============================================================================
 // dapp/app/utils/errors.ts
 // Translates raw viem/contract errors into human-readable messages.
+// Updated for v4 contract — matches custom error names instead of strings.
 // =============================================================================
 
 export function parseContractError(err: any): string {
@@ -81,6 +82,9 @@ export function parseContractError(err: any): string {
   }
 
   // --- Donation errors ---
+  if (message.includes("DonationExceedsGoal")) {
+    return "This donation would exceed the campaign's fundraising goal. Try a smaller amount.";
+  }
   if (message.includes("DonationMustBeGreaterThanZero")) {
     return "Donation amount must be greater than zero.";
   }

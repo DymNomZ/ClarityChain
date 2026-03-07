@@ -813,3 +813,59 @@ describe("closeCampaign()", () => {
     );
   });
 });
+
+// =============================================================================
+// donate() — goal cap enforcement
+// =============================================================================
+
+describe("donate() — goal cap", () => {
+  it("reverts if donation would exceed the campaign goal", async () => {
+    const { clarityChain, ngo, donor } = await deployFresh();
+    // Goal is 1 PAS, try to donate 2 PAS
+    await clarityChain.write.createCampaign(["Fund", parseEther("1")], { account: ngo.account });
+    await assertReverts(
+      () => clarityChain.write.donate([0n], { account: donor.account, value: parseEther("2") }),
+      "DonationExceedsGoal"
+    );
+  });
+
+  it("accepts a donation that exactly hits the goal", async () => {
+    const { clarityChain, ngo, donor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("1")], { account: ngo.account });
+    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("1") });
+    const c = await clarityChain.read.getCampaign([0n]);
+    assert.equal(c[3], parseEther("1"));
+  });
+
+  it("reverts if second donation pushes total over goal", async () => {
+    const { clarityChain, ngo, donor } = await deployFresh();
+    await clarityChain.write.createCampaign(["Fund", parseEther("1")], { account: ngo.account });
+    await clarityChain.write.donate([0n], { account: donor.account, value: parseEther("0.8") });
+    await assertReverts(
+      () => clarityChain.write.donate([0n], { account: donor.account, value: parseEther("0.3") }),
+      "DonationExceedsGoal"
+    );
+  });
+});
+
+// =============================================================================
+// getWhitelistedVendors()
+// =============================================================================
+
+describe("getWhitelistedVendors()", () => {
+  it("returns empty arrays before any vendor is whitelisted", async () => {
+    const { clarityChain } = await deployFresh();
+    const result = await clarityChain.read.getWhitelistedVendors();
+    assert.equal(result[0].length, 0);
+    assert.equal(result[1].length, 0);
+  });
+
+  it("returns whitelisted vendor address and name after approval", async () => {
+    const { clarityChain, deployer, validator2, validator3, vendor } = await deployFresh();
+    await whitelistVendor(clarityChain, deployer, validator2, validator3, vendor.account.address);
+    const result = await clarityChain.read.getWhitelistedVendors();
+    assert.equal(result[0].length, 1);
+    assert.equal(getAddress(result[0][0]), getAddress(vendor.account.address));
+    assert.equal(result[1][0], VENDOR_NAME);
+  });
+});

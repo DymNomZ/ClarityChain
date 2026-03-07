@@ -5,6 +5,7 @@ import { publicClient } from "../utils/viem";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
 import { formatEther } from "viem";
 import NavigationBar from "../components/NavigationBar";
+import { getValidatorProfile } from "../utils/validators";
 
 interface FeedEvent {
   type: string;
@@ -74,6 +75,99 @@ const FeedSkeleton = () => (
     <div className="h-3 w-48 bg-gray-800 rounded" />
   </div>
 );
+
+// Address-type fields that may belong to a known validator or verified identity.
+const ADDRESS_FIELDS = new Set(["validator", "ngo", "donor", "vendor", "proposedby", "applicant"]);
+
+interface IdentityInfo {
+  name: string;
+  links: string[];
+  isValidator: boolean;
+}
+
+// Renders a feed event field. For address fields:
+//   - Known validators  → name in pink  + "who is this?"
+//   - Verified NGOs/individuals → name in cyan + "who is this?"
+const ValidatorAwareField: React.FC<{ fieldKey: string; value: string }> = ({ fieldKey, value }) => {
+  const [showLinks, setShowLinks] = React.useState(false);
+  const [identity, setIdentity] = React.useState<IdentityInfo | null>(null);
+
+  React.useEffect(() => {
+    if (!value.startsWith("0x") || !ADDRESS_FIELDS.has(fieldKey.toLowerCase())) return;
+
+    // Check validator map first — synchronous, no RPC needed
+    const validatorProfile = getValidatorProfile(value);
+    if (validatorProfile) {
+      setIdentity({ name: validatorProfile.name, links: validatorProfile.links, isValidator: true });
+      return;
+    }
+
+    // Fall through to on-chain identity check
+    const checkOnChain = async () => {
+      try {
+        const { publicClient } = await import("../utils/viem");
+        const { CONTRACT_ADDRESS, CONTRACT_ABI } = await import("../utils/contract");
+        const result = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: "getIdentityInfo",
+          args: [value as `0x${string}`],
+        }) as [boolean, string];
+
+        if (result[0]) {
+          const parts = result[1].split("|");
+          const name = parts[0];
+          const links = parts.slice(1).filter((l: string) => l.startsWith("http"));
+          setIdentity({ name, links, isValidator: false });
+        }
+      } catch {
+        // Not verified — leave identity null
+      }
+    };
+    checkOnChain();
+  }, [fieldKey, value]);
+
+  return (
+    <div className="flex gap-2 text-sm flex-wrap items-start">
+      <span className="text-gray-400 capitalize min-w-[120px]">{fieldKey}:</span>
+      <span className="flex flex-col gap-0.5">
+        <span className="flex items-center gap-2 flex-wrap">
+          <span className="text-gray-200 break-all">{value}</span>
+          {identity && (
+            <>
+              <span className={`font-semibold text-xs ${identity.isValidator ? "text-pink-400" : "text-cyan-400"}`}>
+                ({identity.name})
+              </span>
+              {identity.links.length > 0 && (
+                <button
+                  onClick={() => setShowLinks((p) => !p)}
+                  className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                >
+                  who is this?
+                </button>
+              )}
+            </>
+          )}
+        </span>
+        {showLinks && identity && (
+          <span className="flex flex-col gap-0.5 pl-1">
+            {identity.links.map((link, i) => (
+              <a
+                key={i}
+                href={link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2 truncate max-w-xs"
+              >
+                ↗ {link}
+              </a>
+            ))}
+          </span>
+        )}
+      </span>
+    </div>
+  );
+};
 
 const TransactionFeed: React.FC = () => {
   const [events, setEvents] = useState<FeedEvent[]>([]);
@@ -217,10 +311,7 @@ const TransactionFeed: React.FC = () => {
 
                 <div className="space-y-1">
                   {Object.entries(event.data).map(([key, val]) => (
-                    <div key={key} className="flex gap-2 text-sm flex-wrap">
-                      <span className="text-gray-400 capitalize min-w-[120px]">{key}:</span>
-                      <span className="text-gray-200 break-all">{val}</span>
-                    </div>
+                    <ValidatorAwareField key={key} fieldKey={key} value={val} />
                   ))}
                 </div>
 

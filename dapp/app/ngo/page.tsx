@@ -7,6 +7,7 @@ import { parseEther } from "viem";
 import { useAuth } from "../contexts/AuthContext";
 import AssociateVendor from "../components/AssociateVendor";
 import WithdrawToVendor from "../components/WithdrawToVendor";
+import ApplyForVerification from "../components/ApplyForVerification";
 import NavigationBar from "../components/NavigationBar";
 
 const CreateCampaign: React.FC = () => {
@@ -17,6 +18,7 @@ const CreateCampaign: React.FC = () => {
     message: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const { account } = useAuth();
 
   const handleCreate = async () => {
@@ -58,6 +60,7 @@ const CreateCampaign: React.FC = () => {
       });
       setName("");
       setGoalAmount("");
+      setRefreshKey((k) => k + 1);
     } catch (err: any) {
       setStatus({ type: "error", message: err.message || "Failed to create campaign." });
     } finally {
@@ -69,6 +72,9 @@ const CreateCampaign: React.FC = () => {
     <NavigationBar activeTab="ngo" />
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="space-y-8">
+
+        {/* Get Verified */}
+        <ApplyForVerification key={account ?? 'none'} />
 
         {/* Step 1: Create Campaign */}
         <div className="rounded-xl border border-pink-500 bg-gray-900 p-6 space-y-4 max-w-lg mx-auto">
@@ -135,13 +141,13 @@ const CreateCampaign: React.FC = () => {
         {/* Step 2: Associate Vendor */}
         <div className="max-w-lg mx-auto">
           <p className="text-xs font-semibold text-pink-400 uppercase tracking-widest mb-3 px-1">Step 2</p>
-          <AssociateVendor />
+          <AssociateVendor key={account ?? 'none'} refreshKey={refreshKey} />
         </div>
 
         {/* Step 3: Withdraw */}
         <div className="max-w-lg mx-auto">
           <p className="text-xs font-semibold text-pink-400 uppercase tracking-widest mb-3 px-1">Step 3</p>
-          <WithdrawToVendor />
+          <WithdrawToVendor key={account ?? 'none'} />
         </div>
 
       </div>

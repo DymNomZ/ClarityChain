@@ -11,6 +11,7 @@ interface Campaign {
   id: number;
   name: string;
   available: bigint;
+  goalAmount: bigint;
 }
 
 interface AssociatedVendor {
@@ -58,6 +59,7 @@ const WithdrawToVendor: React.FC = () => {
               id: i,
               name: result[0],
               available: result[3] - result[4],
+              goalAmount: result[2],
             });
           }
         }
@@ -227,7 +229,7 @@ const WithdrawToVendor: React.FC = () => {
               <option value="">-- Select a campaign --</option>
               {myCampaigns.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} ({formatEther(c.available)} PAS available)
+                  {c.name} ({formatEther(c.available)} PAS remaining)
                 </option>
               ))}
             </select>

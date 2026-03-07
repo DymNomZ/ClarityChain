@@ -17,6 +17,9 @@ pragma solidity ^0.8.28;
 //   - [Feature] NGO/individual identity verification
 // Changelog from v3:
 //   - [Optimization] All require strings replaced with custom errors (EIP-170)
+// Changelog from v4:
+//   - [Feature] Donation cap — donate() reverts if amount would exceed goalAmount
+//   - [Feature] getWhitelistedVendors() — returns all approved vendor addresses + names
 // =============================================================================
 
 contract ClarityChain {
@@ -36,6 +39,7 @@ contract ClarityChain {
     error NameCannotBeEmpty();
     error GoalMustBeGreaterThanZero();
     error DonationMustBeGreaterThanZero();
+    error DonationExceedsGoal();
     error VendorNotWhitelistedRejected();   // THE MONEY SHOT — demo rejection
     error VendorNotAssociatedWithCampaign();
     error AmountMustBeGreaterThanZero();
@@ -257,6 +261,8 @@ contract ClarityChain {
         nonReentrant
     {
         if (msg.value == 0) revert DonationMustBeGreaterThanZero();
+        if (campaigns[campaignId].raisedAmount + msg.value > campaigns[campaignId].goalAmount)
+            revert DonationExceedsGoal();
 
         if (!hasDonated[campaignId][msg.sender]) {
             hasDonated[campaignId][msg.sender] = true;
@@ -575,6 +581,34 @@ contract ClarityChain {
 
     function isVendorWhitelisted(address vendor) external view returns (bool) {
         return whitelistedVendors[vendor];
+    }
+
+    /// @notice Returns all whitelisted vendor addresses and their names.
+    /// @dev Iterates executed proposals — O(n) but view-only, no gas cost.
+    function getWhitelistedVendors()
+        external
+        view
+        returns (address[] memory addresses, string[] memory names)
+    {
+        // First pass: count whitelisted vendors
+        uint256 count = 0;
+        for (uint256 i = 0; i < proposalCount; i++) {
+            if (proposalExecuted[i]) count++;
+        }
+
+        addresses = new address[](count);
+        names = new string[](count);
+
+        // Second pass: populate arrays
+        uint256 idx = 0;
+        for (uint256 i = 0; i < proposalCount; i++) {
+            if (proposalExecuted[i]) {
+                address v = proposalVendorAddress[i];
+                addresses[idx] = v;
+                names[idx] = vendorNames[v];
+                idx++;
+            }
+        }
     }
 
     function getValidators() external view returns (address[5] memory) {

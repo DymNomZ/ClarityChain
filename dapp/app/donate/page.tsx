@@ -7,6 +7,7 @@ import { parseContractError } from "../utils/errors";
 import { parseEther, formatEther } from "viem";
 import { useAuth } from "../contexts/AuthContext";
 import NavigationBar from "../components/NavigationBar";
+import VerifiedBadge from "../components/VerifiedBadge";
 
 interface Campaign {
   id: number;
@@ -45,6 +46,13 @@ const CampaignList: React.FC = () => {
   const [status, setStatus] = useState<Record<number, { type: string; message: string }>>({});
   const [submitting, setSubmitting] = useState<Record<number, boolean>>({});
   const { account } = useAuth();
+
+  // Clear per-wallet form state when wallet switches
+  useEffect(() => {
+    setDonationAmounts({});
+    setStatus({});
+    setSubmitting({});
+  }, [account]);
 
   const fetchCampaigns = async () => {
     try {
@@ -96,6 +104,11 @@ const CampaignList: React.FC = () => {
     const amount = donationAmounts[campaignId];
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       setStatus({ ...status, [campaignId]: { type: "error", message: "Enter a valid donation amount." } });
+      return;
+    }
+    const campaign = campaigns.find((c) => c.id === campaignId);
+    if (campaign && parseEther(amount) > campaign.goalAmount - campaign.raisedAmount) {
+      setStatus({ ...status, [campaignId]: { type: "error", message: `Too much — only ${formatEther(campaign.goalAmount - campaign.raisedAmount)} PAS left to reach the goal.` } });
       return;
     }
 
@@ -196,7 +209,7 @@ const CampaignList: React.FC = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-bold text-white">{campaign.name}</h3>
-                  <p className="text-xs text-gray-400 mt-1 break-all">NGO: {campaign.ngo}</p>
+                  <p className="text-xs text-gray-400 mt-1 break-all flex items-start gap-1 flex-wrap">NGO: {campaign.ngo} <VerifiedBadge address={campaign.ngo} /></p>
                 </div>
                 <span className={`text-xs px-2 py-1 rounded-full font-semibold shrink-0 ml-2 ${statusLabel.classes}`}>
                   {statusLabel.label}
@@ -215,8 +228,18 @@ const CampaignList: React.FC = () => {
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Available: {formatEther(campaign.raisedAmount - campaign.withdrawnAmount)} PAS
+                  Available to spend: {formatEther(campaign.raisedAmount - campaign.withdrawnAmount)} PAS
                 </p>
+                {campaign.active && campaign.goalAmount > campaign.raisedAmount && (
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Remaining to goal: {formatEther(campaign.goalAmount - campaign.raisedAmount)} PAS
+                  </p>
+                )}
+                {campaign.active && campaign.goalAmount === campaign.raisedAmount && (
+                  <p className="text-xs text-teal-500 mt-0.5 font-medium">
+                    ✓ Goal reached
+                  </p>
+                )}
               </div>
 
               {/* Refund notice */}

@@ -11,20 +11,33 @@ interface Campaign {
   id: number;
   name: string;
   available: bigint;
+  goalAmount: bigint;
 }
 
-const AssociateVendor: React.FC = () => {
+interface WhitelistedVendor {
+  address: string;
+  displayName: string;
+}
+
+interface Props {
+  refreshKey?: number;
+}
+
+const AssociateVendor: React.FC<Props> = ({ refreshKey = 0 }) => {
   const [myCampaigns, setMyCampaigns] = useState<Campaign[]>([]);
+  const [whitelistedVendors, setWhitelistedVendors] = useState<WhitelistedVendor[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<number | "">("");
-  const [vendorAddress, setVendorAddress] = useState("");
-  const [isVendorWhitelisted, setIsVendorWhitelisted] = useState<boolean | null>(null);
-  const [vendorDisplayName, setVendorDisplayName] = useState("");
+  const [selectedVendorAddress, setSelectedVendorAddress] = useState("");
   const [cap, setCap] = useState("");
   const [instructions, setInstructions] = useState("");
   const [status, setStatus] = useState<{ type: string | null; message: string }>({ type: null, message: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [campaignGoal, setCampaignGoal] = useState<bigint>(0n);
+  const [alreadyAllocated, setAlreadyAllocated] = useState<bigint>(0n);
+  const [associatedVendorAddresses, setAssociatedVendorAddresses] = useState<Set<string>>(new Set());
   const { account } = useAuth();
 
+  // Fetch NGO's active campaigns
   useEffect(() => {
     const fetchMyCampaigns = async () => {
       if (!account) return;
@@ -49,6 +62,7 @@ const AssociateVendor: React.FC = () => {
               id: i,
               name: result[0],
               available: result[3] - result[4],
+              goalAmount: result[2],
             });
           }
         }
@@ -58,43 +72,76 @@ const AssociateVendor: React.FC = () => {
       }
     };
     fetchMyCampaigns();
-  }, [account]);
+  }, [account, refreshKey]);
 
-  // Live whitelist check as vendor address is typed
+  // When campaign selection changes, fetch its goal and sum existing vendor caps
   useEffect(() => {
-    const checkVendor = async () => {
-      if (!vendorAddress || vendorAddress.length !== 42 || !vendorAddress.startsWith("0x")) {
-        setIsVendorWhitelisted(null);
-        setVendorDisplayName("");
+    const fetchCampaignBudget = async () => {
+      if (selectedCampaign === "") {
+        setCampaignGoal(0n);
+        setAlreadyAllocated(0n);
+        setAssociatedVendorAddresses(new Set());
         return;
       }
       try {
-        const isWhitelisted = await publicClient.readContract({
+        const result = await publicClient.readContract({
           address: CONTRACT_ADDRESS,
           abi: CONTRACT_ABI,
-          functionName: "isVendorWhitelisted",
-          args: [vendorAddress as `0x${string}`],
-        }) as boolean;
-        setIsVendorWhitelisted(isWhitelisted);
+          functionName: "getCampaign",
+          args: [BigInt(selectedCampaign)],
+        }) as [string, string, bigint, bigint, bigint, boolean, boolean];
+        setCampaignGoal(result[2]);
 
-        if (isWhitelisted) {
-          const rawName = await publicClient.readContract({
+        // Sum caps of all already-associated vendors
+        const vendorAddresses = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: "getCampaignVendorList",
+          args: [BigInt(selectedCampaign)],
+        }) as string[];
+
+        setAssociatedVendorAddresses(new Set(vendorAddresses.map((a) => a.toLowerCase())));
+
+        let total = 0n;
+        for (const addr of vendorAddresses) {
+          const cv = await publicClient.readContract({
             address: CONTRACT_ADDRESS,
             abi: CONTRACT_ABI,
-            functionName: "vendorNames",
-            args: [vendorAddress as `0x${string}`],
-          }) as string;
-          // Strip pipe-encoded links — show only the vendor name
-          setVendorDisplayName(rawName.split("|")[0]);
-        } else {
-          setVendorDisplayName("");
+            functionName: "getCampaignVendor",
+            args: [BigInt(selectedCampaign), addr as `0x${string}`],
+          }) as [bigint, bigint, string, boolean];
+          total += cv[0]; // cv[0] = cap
         }
-      } catch {
-        setIsVendorWhitelisted(null);
+        setAlreadyAllocated(total);
+      } catch (err) {
+        console.error("Failed to fetch campaign budget:", err);
       }
     };
-    checkVendor();
-  }, [vendorAddress]);
+    fetchCampaignBudget();
+  }, [selectedCampaign]);
+
+  // Fetch all whitelisted vendors from contract in one call
+  useEffect(() => {
+    const fetchWhitelistedVendors = async () => {
+      try {
+        const result = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: "getWhitelistedVendors",
+        }) as [string[], string[]];
+
+        const vendors: WhitelistedVendor[] = result[0].map((addr, i) => ({
+          address: addr,
+          // Strip pipe-encoded links — show only the vendor name
+          displayName: result[1][i].split("|")[0],
+        }));
+        setWhitelistedVendors(vendors);
+      } catch (err) {
+        console.error("Failed to fetch whitelisted vendors:", err);
+      }
+    };
+    fetchWhitelistedVendors();
+  }, []);
 
   const handleAssociate = async () => {
     if (!account) {
@@ -105,22 +152,34 @@ const AssociateVendor: React.FC = () => {
       setStatus({ type: "error", message: "Select a campaign." });
       return;
     }
-    if (!vendorAddress || vendorAddress.length !== 42) {
-      setStatus({ type: "error", message: "Enter a valid vendor address." });
+    if (!selectedVendorAddress) {
+      setStatus({ type: "error", message: "Select a vendor." });
       return;
     }
-    if (!isVendorWhitelisted) {
-      setStatus({ type: "error", message: "Vendor must be whitelisted before they can be associated." });
+    if (associatedVendorAddresses.has(selectedVendorAddress.toLowerCase())) {
+      setStatus({ type: "error", message: "This vendor is already associated with this campaign." });
       return;
     }
     if (!cap || isNaN(Number(cap)) || Number(cap) <= 0) {
       setStatus({ type: "error", message: "Enter a valid spending cap." });
       return;
     }
+    const capWei = parseEther(cap);
+    const remainingBudget = campaignGoal - alreadyAllocated;
+    if (capWei > remainingBudget) {
+      const remainingPAS = formatEther(remainingBudget);
+      setStatus({
+        type: "error",
+        message: `Cap exceeds remaining campaign budget. Only ${remainingPAS} PAS can still be allocated across vendors for this campaign.`,
+      });
+      return;
+    }
     if (!instructions.trim()) {
       setStatus({ type: "error", message: "Procurement instructions cannot be empty." });
       return;
     }
+
+    const selectedVendor = whitelistedVendors.find((v) => v.address === selectedVendorAddress);
 
     try {
       setIsSubmitting(true);
@@ -135,7 +194,7 @@ const AssociateVendor: React.FC = () => {
         functionName: "associateVendor",
         args: [
           BigInt(selectedCampaign),
-          vendorAddress as `0x${string}`,
+          selectedVendorAddress as `0x${string}`,
           parseEther(cap),
           instructions.trim(),
         ],
@@ -148,9 +207,9 @@ const AssociateVendor: React.FC = () => {
 
       setStatus({
         type: "success",
-        message: `✅ ${vendorDisplayName} associated with campaign. Cap: ${cap} PAS. Instructions stored on-chain.`,
+        message: `✅ ${selectedVendor?.displayName ?? selectedVendorAddress} associated. Cap: ${cap} PAS. Instructions stored on-chain.`,
       });
-      setVendorAddress("");
+      setSelectedVendorAddress("");
       setCap("");
       setInstructions("");
       setSelectedCampaign("");
@@ -199,34 +258,36 @@ const AssociateVendor: React.FC = () => {
               <option value="">-- Select a campaign --</option>
               {myCampaigns.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} ({formatEther(c.available)} PAS available)
+                  {c.name} ({formatEther(c.goalAmount)} PAS Goal)
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Vendor address with live whitelist check */}
+          {/* Vendor dropdown — populated from getWhitelistedVendors() */}
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Vendor Wallet Address</label>
-            <input
-              type="text"
-              placeholder="0x..."
-              value={vendorAddress}
-              onChange={(e) => setVendorAddress(e.target.value.trim())}
-              disabled={isSubmitting}
-              className={`w-full p-3 rounded-lg bg-gray-800 border text-white placeholder-gray-500 focus:outline-none ${
-                isVendorWhitelisted === true ? "border-green-500"
-                : isVendorWhitelisted === false ? "border-red-500"
-                : "border-gray-600 focus:border-pink-500"
-              }`}
-            />
-            {isVendorWhitelisted === true && (
-              <p className="text-green-400 text-xs mt-1">✅ Whitelisted: {vendorDisplayName}</p>
+            <label className="block text-sm text-gray-400 mb-1">Whitelisted Vendor</label>
+            {whitelistedVendors.length === 0 ? (
+              <div className="p-3 rounded-lg bg-gray-800 border border-yellow-700 text-yellow-400 text-sm">
+                No whitelisted vendors yet. Propose one in the Vendor Governance tab.
+              </div>
+            ) : (
+              <select
+                value={selectedVendorAddress}
+                onChange={(e) => setSelectedVendorAddress(e.target.value)}
+                disabled={isSubmitting}
+                className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 text-white focus:outline-none focus:border-pink-500"
+              >
+                <option value="">-- Select a vendor --</option>
+                {whitelistedVendors.map((v) => (
+                  <option key={v.address} value={v.address}>
+                    {v.displayName}
+                  </option>
+                ))}
+              </select>
             )}
-            {isVendorWhitelisted === false && (
-              <p className="text-red-400 text-xs mt-1">
-                🚫 Not whitelisted — propose this vendor in the Vendor Governance tab first.
-              </p>
+            {selectedVendorAddress && (
+              <p className="text-xs text-gray-600 mt-1 break-all">{selectedVendorAddress}</p>
             )}
           </div>
 
@@ -241,9 +302,24 @@ const AssociateVendor: React.FC = () => {
               disabled={isSubmitting}
               className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 text-white placeholder-gray-500 focus:outline-none focus:border-pink-500"
             />
-            <p className="text-xs text-gray-600 mt-1">
-              Maximum amount this vendor can receive from this campaign.
-            </p>
+            {selectedCampaign !== "" && campaignGoal > 0n && (
+              <p className={`text-xs mt-1 ${
+                alreadyAllocated >= campaignGoal
+                  ? "text-red-400"
+                  : campaignGoal - alreadyAllocated < parseEther("1")
+                  ? "text-yellow-400"
+                  : "text-gray-500"
+              }`}>
+                Budget remaining for vendors:{" "}
+                {formatEther(campaignGoal - alreadyAllocated)} /{" "}
+                {formatEther(campaignGoal)} PAS
+              </p>
+            )}
+            {selectedCampaign !== "" && alreadyAllocated >= campaignGoal && (
+              <p className="text-xs text-red-400 mt-0.5">
+                ⚠️ Campaign budget fully allocated — no more vendors can be added.
+              </p>
+            )}
           </div>
 
           {/* Procurement instructions */}
@@ -264,7 +340,7 @@ const AssociateVendor: React.FC = () => {
 
           <button
             onClick={handleAssociate}
-            disabled={isSubmitting || !isVendorWhitelisted}
+            disabled={isSubmitting || !selectedVendorAddress}
             className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-4 rounded-lg transition disabled:bg-gray-600 disabled:cursor-not-allowed"
           >
             {isSubmitting ? "Associating..." : "Associate Vendor"}
