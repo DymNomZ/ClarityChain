@@ -79,30 +79,60 @@ const FeedSkeleton = () => (
 // Address-type fields that may belong to a known validator or verified identity.
 const ADDRESS_FIELDS = new Set(["validator", "ngo", "donor", "vendor", "proposedby", "applicant"]);
 
+type IdentityTier = "validator" | "vendor" | "verified";
+
 interface IdentityInfo {
   name: string;
   links: string[];
-  isValidator: boolean;
+  tier: IdentityTier;
 }
 
-// Renders a feed event field. For address fields:
-//   - Known validators  → name in pink  + "who is this?"
-//   - Verified NGOs/individuals → name in cyan + "who is this?"
-const ValidatorAwareField: React.FC<{ fieldKey: string; value: string }> = ({ fieldKey, value }) => {
+const TIER_STYLES: Record<IdentityTier, string> = {
+  validator: "text-pink-400",
+  vendor:    "text-green-400",
+  verified:  "text-cyan-400",
+};
+
+const TIER_ICON: Record<IdentityTier, string> = {
+  validator: "",
+  vendor:    "🏪 ",
+  verified:  "",
+};
+
+// Vendor map fetched once at TransactionFeed level and passed as prop.
+// Map key is lowercase address, value is { name, links }.
+type VendorMap = Map<string, { name: string; links: string[] }>;
+
+// Renders a feed event field. Priority for address fields:
+//   1. Validator  → pink,  name,       "who is this?"
+//   2. Vendor     → green, 🏪 name,    "who is this?"
+//   3. Verified   → cyan,  name,       "who is this?"
+const ValidatorAwareField: React.FC<{
+  fieldKey: string;
+  value: string;
+  vendorMap: VendorMap;
+}> = ({ fieldKey, value, vendorMap }) => {
   const [showLinks, setShowLinks] = React.useState(false);
   const [identity, setIdentity] = React.useState<IdentityInfo | null>(null);
 
   React.useEffect(() => {
     if (!value.startsWith("0x") || !ADDRESS_FIELDS.has(fieldKey.toLowerCase())) return;
 
-    // Check validator map first — synchronous, no RPC needed
+    // Tier 1 — validator (synchronous, no RPC)
     const validatorProfile = getValidatorProfile(value);
     if (validatorProfile) {
-      setIdentity({ name: validatorProfile.name, links: validatorProfile.links, isValidator: true });
+      setIdentity({ name: validatorProfile.name, links: validatorProfile.links, tier: "validator" });
       return;
     }
 
-    // Fall through to on-chain identity check
+    // Tier 2 — whitelisted vendor (from pre-fetched map, no extra RPC per field)
+    const vendorProfile = vendorMap.get(value.toLowerCase());
+    if (vendorProfile) {
+      setIdentity({ name: vendorProfile.name, links: vendorProfile.links, tier: "vendor" });
+      return;
+    }
+
+    // Tier 3 — on-chain identity verification
     const checkOnChain = async () => {
       try {
         const { publicClient } = await import("../utils/viem");
@@ -116,16 +146,18 @@ const ValidatorAwareField: React.FC<{ fieldKey: string; value: string }> = ({ fi
 
         if (result[0]) {
           const parts = result[1].split("|");
-          const name = parts[0];
-          const links = parts.slice(1).filter((l: string) => l.startsWith("http"));
-          setIdentity({ name, links, isValidator: false });
+          setIdentity({
+            name: parts[0],
+            links: parts.slice(1).filter((l: string) => l.startsWith("http")),
+            tier: "verified",
+          });
         }
       } catch {
         // Not verified — leave identity null
       }
     };
     checkOnChain();
-  }, [fieldKey, value]);
+  }, [fieldKey, value, vendorMap]);
 
   return (
     <div className="flex gap-2 text-sm flex-wrap items-start">
@@ -135,8 +167,8 @@ const ValidatorAwareField: React.FC<{ fieldKey: string; value: string }> = ({ fi
           <span className="text-gray-200 break-all">{value}</span>
           {identity && (
             <>
-              <span className={`font-semibold text-xs ${identity.isValidator ? "text-pink-400" : "text-cyan-400"}`}>
-                ({identity.name})
+              <span className={`font-semibold text-xs ${TIER_STYLES[identity.tier]}`}>
+                ({TIER_ICON[identity.tier]}{identity.name})
               </span>
               {identity.links.length > 0 && (
                 <button
@@ -174,6 +206,33 @@ const TransactionFeed: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string>("");
   const [showLegend, setShowLegend] = useState(false);
+  const [vendorMap, setVendorMap] = useState<VendorMap>(new Map());
+
+  // Fetch all whitelisted vendors once on mount — builds a Map for O(1) lookup per field
+  useEffect(() => {
+    const fetchVendorMap = async () => {
+      try {
+        const result = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: "getWhitelistedVendors",
+        }) as [string[], string[]];
+
+        const map: VendorMap = new Map();
+        result[0].forEach((addr, i) => {
+          const parts = result[1][i].split("|");
+          map.set(addr.toLowerCase(), {
+            name: parts[0],
+            links: parts.slice(1).filter((l) => l.startsWith("http")),
+          });
+        });
+        setVendorMap(map);
+      } catch {
+        // Non-fatal — feed still works, just no vendor badges
+      }
+    };
+    fetchVendorMap();
+  }, []);
 
   const fetchEvents = async () => {
     try {
@@ -247,7 +306,7 @@ const TransactionFeed: React.FC = () => {
           <div>
             <h2 className="text-xl font-bold text-white">Public Transaction Feed</h2>
             <p className="text-sm text-gray-400 mt-1">
-              Every action on ClarityChain is permanent and publicly visible. Don't trust — verify.
+              Every action on ClarityChain is permanent and publicly visible.
             </p>
           </div>
           <div className="flex gap-2 items-center">
@@ -311,7 +370,7 @@ const TransactionFeed: React.FC = () => {
 
                 <div className="space-y-1">
                   {Object.entries(event.data).map(([key, val]) => (
-                    <ValidatorAwareField key={key} fieldKey={key} value={val} />
+                    <ValidatorAwareField key={key} fieldKey={key} value={val} vendorMap={vendorMap} />
                   ))}
                 </div>
 

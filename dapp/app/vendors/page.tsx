@@ -252,7 +252,7 @@ const VendorManagement: React.FC = () => {
           <div className={`text-sm p-3 rounded-lg ${isValidator ? "bg-green-900 text-green-300" : "bg-gray-800 text-gray-400"}`}>
             {isValidator
               ? "✅ Your wallet is a validator. You can sign vendor approvals."
-              : "ℹ️ Your wallet is not a validator. Anyone can propose a vendor below — validators review and approve."}
+              : "ℹ️ Your wallet is not a validator. Anyone can propose a vendor below, validators review and approve."}
           </div>
         )}
 

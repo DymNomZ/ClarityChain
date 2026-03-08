@@ -21,12 +21,14 @@ interface WhitelistedVendor {
 
 interface Props {
   refreshKey?: number;
+  preselectedCampaignId?: number;
+  preselectedCampaignName?: string;
 }
 
-const AssociateVendor: React.FC<Props> = ({ refreshKey = 0 }) => {
+const AssociateVendor: React.FC<Props> = ({ refreshKey = 0, preselectedCampaignId, preselectedCampaignName }) => {
   const [myCampaigns, setMyCampaigns] = useState<Campaign[]>([]);
   const [whitelistedVendors, setWhitelistedVendors] = useState<WhitelistedVendor[]>([]);
-  const [selectedCampaign, setSelectedCampaign] = useState<number | "">("");
+  const [selectedCampaign, setSelectedCampaign] = useState<number | "">(preselectedCampaignId ?? "");
   const [selectedVendorAddress, setSelectedVendorAddress] = useState("");
   const [cap, setCap] = useState("");
   const [instructions, setInstructions] = useState("");
@@ -36,6 +38,13 @@ const AssociateVendor: React.FC<Props> = ({ refreshKey = 0 }) => {
   const [alreadyAllocated, setAlreadyAllocated] = useState<bigint>(0n);
   const [associatedVendorAddresses, setAssociatedVendorAddresses] = useState<Set<string>>(new Set());
   const { account } = useAuth();
+
+  // Sync preselected campaign when prop changes
+  useEffect(() => {
+    if (preselectedCampaignId !== undefined) {
+      setSelectedCampaign(preselectedCampaignId);
+    }
+  }, [preselectedCampaignId]);
 
   // Fetch NGO's active campaigns
   useEffect(() => {
@@ -226,7 +235,7 @@ const AssociateVendor: React.FC<Props> = ({ refreshKey = 0 }) => {
         <h2 className="text-xl font-bold text-white">Associate a Vendor</h2>
         <p className="text-sm text-gray-400 mt-1">
           Link a whitelisted vendor to your campaign. Set their spending cap and
-          record what they're contracted to do — stored permanently on-chain.
+          record what they're contracted to do, stored permanently on-chain.
         </p>
       </div>
 
@@ -242,27 +251,34 @@ const AssociateVendor: React.FC<Props> = ({ refreshKey = 0 }) => {
 
       {!account ? (
         <p className="text-gray-500 text-sm">Connect your wallet to associate vendors.</p>
-      ) : myCampaigns.length === 0 ? (
-        <p className="text-gray-500 text-sm">You have no active campaigns. Create one above first.</p>
+      ) : myCampaigns.length === 0 && preselectedCampaignId === undefined ? (
+        <p className="text-gray-500 text-sm">You have no active campaigns. Create one first.</p>
       ) : (
         <div className="space-y-3">
-          {/* Campaign selector */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Campaign</label>
-            <select
-              value={selectedCampaign}
-              onChange={(e) => setSelectedCampaign(e.target.value === "" ? "" : Number(e.target.value))}
-              disabled={isSubmitting}
-              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 text-white focus:outline-none focus:border-pink-500"
-            >
-              <option value="">-- Select a campaign --</option>
-              {myCampaigns.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({formatEther(c.goalAmount)} PAS Goal)
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Campaign selector — hidden when preselected from parent */}
+          {preselectedCampaignId !== undefined ? (
+            <div className="p-3 rounded-lg bg-gray-800 border border-gray-700 text-sm">
+              <span className="text-gray-400">Campaign: </span>
+              <span className="text-white font-medium">{preselectedCampaignName ?? `Campaign #${preselectedCampaignId}`}</span>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Campaign</label>
+              <select
+                value={selectedCampaign}
+                onChange={(e) => setSelectedCampaign(e.target.value === "" ? "" : Number(e.target.value))}
+                disabled={isSubmitting}
+                className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 text-white focus:outline-none focus:border-pink-500"
+              >
+                <option value="">-- Select a campaign --</option>
+                {myCampaigns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({formatEther(c.goalAmount)} PAS Goal)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Vendor dropdown — populated from getWhitelistedVendors() */}
           <div>
@@ -317,7 +333,7 @@ const AssociateVendor: React.FC<Props> = ({ refreshKey = 0 }) => {
             )}
             {selectedCampaign !== "" && alreadyAllocated >= campaignGoal && (
               <p className="text-xs text-red-400 mt-0.5">
-                ⚠️ Campaign budget fully allocated — no more vendors can be added.
+                ⚠️ Campaign budget fully allocated, no more vendors can be added.
               </p>
             )}
           </div>

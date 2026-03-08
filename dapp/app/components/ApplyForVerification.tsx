@@ -166,10 +166,10 @@ const ApplyForVerification: React.FC = () => {
       <div>
         <h2 className="text-xl font-bold text-white">Get Verified</h2>
         <p className="text-sm text-gray-400 mt-1">
-          NGOs and organizations can apply for on-chain identity verification.
+          Users can apply for on-chain identity verification.
           Validators review your submitted links and sign their approval.
-          Once verified, a ✓ checkmark appears next to your wallet address
-          on all campaign cards — donors can click "who is this?" to see your profile.
+          Once verified, a ✓ checkmark appears next to your wallet address and a "who is this?" link 
+          for users to see your profile.
         </p>
       </div>
 

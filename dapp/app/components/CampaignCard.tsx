@@ -66,7 +66,7 @@ export default function CampaignCard({campaign, fetchCampaigns, setCampaignModal
 
         if (campaign && parseEther(amount) > campaign.goalAmount - campaign.raisedAmount) {
             setType("error")
-            setMessage(`Too much — only ${formatEther(campaign.goalAmount - campaign.raisedAmount)} PAS left to reach the goal.`)
+            setMessage(`Too much! Only ${formatEther(campaign.goalAmount - campaign.raisedAmount)} PAS left to reach the goal.`)
             return;
         }
 

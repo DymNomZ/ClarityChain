@@ -12,7 +12,7 @@ export default function NavigationBar({ activeTab }: NavigationBarProps) {
     const router = useRouter();
     const tabs: { id: Tab; label: string; icon: string }[] = [
         { id: "donate", label: "Donate", icon: "💰" },
-        { id: "ngo", label: "NGO Dashboard", icon: "🏕️" },
+        { id: "ngo", label: "My Campaigns", icon: "🏕️" },
         { id: "vendors", label: "Vendor Governance", icon: "🗳️" },
         { id: "feed", label: "Public Feed", icon: "📡" },
     ];

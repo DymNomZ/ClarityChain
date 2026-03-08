@@ -11,7 +11,7 @@ export default function PageHeader() {
                 Clarity<span className="text-pink-500">Chain</span>
                 </h1>
                 <p className="text-xs text-gray-400 mt-0.5">
-                Don't trust. Verify. — Built on Polkadot Hub
+                Built on Polkadot Hub
                 </p>
             </div>
             <WalletConnect />

@@ -23,9 +23,14 @@ interface AssociatedVendor {
   instructions: string;
 }
 
-const WithdrawToVendor: React.FC = () => {
+interface Props {
+  preselectedCampaignId?: number;
+  preselectedCampaignName?: string;
+}
+
+const WithdrawToVendor: React.FC<Props> = ({ preselectedCampaignId, preselectedCampaignName }) => {
   const [myCampaigns, setMyCampaigns] = useState<Campaign[]>([]);
-  const [selectedCampaign, setSelectedCampaign] = useState<number | "">("");
+  const [selectedCampaign, setSelectedCampaign] = useState<number | "">(preselectedCampaignId ?? "");
   const [associatedVendors, setAssociatedVendors] = useState<AssociatedVendor[]>([]);
   const [loadingVendors, setLoadingVendors] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<AssociatedVendor | null>(null);
@@ -33,6 +38,13 @@ const WithdrawToVendor: React.FC = () => {
   const [status, setStatus] = useState<{ type: string | null; message: string }>({ type: null, message: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { account } = useAuth();
+
+  // Sync preselected campaign when prop changes
+  useEffect(() => {
+    if (preselectedCampaignId !== undefined) {
+      setSelectedCampaign(preselectedCampaignId);
+    }
+  }, [preselectedCampaignId]);
 
   // Fetch NGO's active campaigns
   useEffect(() => {
@@ -208,32 +220,37 @@ const WithdrawToVendor: React.FC = () => {
 
       {!account ? (
         <p className="text-gray-500 text-sm">Connect your wallet to manage withdrawals.</p>
-      ) : myCampaigns.length === 0 ? (
-        <p className="text-gray-500 text-sm">
-          You have no active campaigns. Create one above.
-        </p>
+      ) : myCampaigns.length === 0 && preselectedCampaignId === undefined ? (
+        <p className="text-gray-500 text-sm">You have no active campaigns. Create one first.</p>
       ) : (
         <div className="space-y-3">
-          {/* Campaign selector */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Campaign</label>
-            <select
-              value={selectedCampaign}
-              onChange={(e) => {
-                setSelectedCampaign(e.target.value === "" ? "" : Number(e.target.value));
-                setStatus({ type: null, message: "" });
-              }}
-              disabled={isSubmitting}
-              className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 text-white focus:outline-none focus:border-pink-500"
-            >
-              <option value="">-- Select a campaign --</option>
-              {myCampaigns.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({formatEther(c.available)} PAS remaining)
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Campaign selector — hidden when preselected from parent */}
+          {preselectedCampaignId !== undefined ? (
+            <div className="p-3 rounded-lg bg-gray-800 border border-gray-700 text-sm">
+              <span className="text-gray-400">Campaign: </span>
+              <span className="text-white font-medium">{preselectedCampaignName ?? `Campaign #${preselectedCampaignId}`}</span>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Campaign</label>
+              <select
+                value={selectedCampaign}
+                onChange={(e) => {
+                  setSelectedCampaign(e.target.value === "" ? "" : Number(e.target.value));
+                  setStatus({ type: null, message: "" });
+                }}
+                disabled={isSubmitting}
+                className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 text-white focus:outline-none focus:border-pink-500"
+              >
+                <option value="">-- Select a campaign --</option>
+                {myCampaigns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({formatEther(c.available)} PAS remaining)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Vendor selector — populated from on-chain associations */}
           {selectedCampaign !== "" && (
