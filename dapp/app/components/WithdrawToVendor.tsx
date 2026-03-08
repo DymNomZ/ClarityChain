@@ -26,9 +26,11 @@ interface AssociatedVendor {
 interface Props {
   preselectedCampaignId?: number;
   preselectedCampaignName?: string;
+  vendorRefreshKey?: number;
+  onSuccess?: () => void;
 }
 
-const WithdrawToVendor: React.FC<Props> = ({ preselectedCampaignId, preselectedCampaignName }) => {
+const WithdrawToVendor: React.FC<Props> = ({ preselectedCampaignId, preselectedCampaignName, vendorRefreshKey = 0, onSuccess }) => {
   const [myCampaigns, setMyCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<number | "">(preselectedCampaignId ?? "");
   const [associatedVendors, setAssociatedVendors] = useState<AssociatedVendor[]>([]);
@@ -135,7 +137,7 @@ const WithdrawToVendor: React.FC<Props> = ({ preselectedCampaignId, preselectedC
       }
     };
     fetchAssociatedVendors();
-  }, [selectedCampaign]);
+  }, [selectedCampaign, vendorRefreshKey]);
 
   const handleWithdraw = async () => {
     if (!account) {
@@ -189,7 +191,16 @@ const WithdrawToVendor: React.FC<Props> = ({ preselectedCampaignId, preselectedC
       });
       setAmount("");
       setSelectedVendor(null);
-      setSelectedCampaign("");
+      // Re-fetch vendor list for this campaign so spent/remaining update immediately.
+      // Only clear campaign selection if not preselected by parent.
+      if (preselectedCampaignId === undefined) {
+        setSelectedCampaign("");
+      } else {
+        // Trigger re-fetch by nudging selectedCampaign through a temporary reset
+        setSelectedCampaign("");
+        setTimeout(() => setSelectedCampaign(preselectedCampaignId), 50);
+        onSuccess?.();
+      }
     } catch (err: any) {
       // The demo money shot — VendorNotWhitelistedRejected surfaces here
       setStatus({ type: "error", message: parseContractError(err) });

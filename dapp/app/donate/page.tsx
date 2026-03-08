@@ -110,7 +110,7 @@ const CampaignList: React.FC = () => {
     }
     const campaign = campaigns.find((c) => c.id === campaignId);
     if (campaign && parseEther(amount) > campaign.goalAmount - campaign.raisedAmount) {
-      setStatus({ ...status, [campaignId]: { type: "error", message: `Too much — only ${formatEther(campaign.goalAmount - campaign.raisedAmount)} PAS left to reach the goal.` } });
+      setStatus({ ...status, [campaignId]: { type: "error", message: `Too much! Only ${formatEther(campaign.goalAmount - campaign.raisedAmount)} PAS left to reach the goal.` } });
       return;
     }
 

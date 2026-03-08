@@ -184,9 +184,38 @@ const ModalOverlay: React.FC<{ onClose: () => void; children: React.ReactNode }>
 // ---------------------------------------------------------------------------
 
 const CampaignDetail: React.FC<{ campaign: Campaign; onClose: () => void }> = ({
-  campaign,
+  campaign: initialCampaign,
   onClose,
-}) => (
+}) => {
+  const [campaign, setCampaign] = React.useState<Campaign>(initialCampaign);
+  const [vendorRefreshKey, setVendorRefreshKey] = React.useState(0);
+
+  // Re-fetch this campaign's live data from the contract
+  const refreshCampaign = React.useCallback(async () => {
+    try {
+      const result = await publicClient.readContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "getCampaign",
+        args: [BigInt(initialCampaign.id)],
+      }) as [string, string, bigint, bigint, bigint, boolean, boolean];
+      setCampaign({
+        id: initialCampaign.id,
+        name: result[0],
+        goalAmount: result[2],
+        raisedAmount: result[3],
+        withdrawnAmount: result[4],
+        active: result[5],
+      });
+    } catch { /* silently keep showing last known values */ }
+  }, [initialCampaign.id]);
+
+  const handleAction = () => {
+    setVendorRefreshKey((k) => k + 1);
+    refreshCampaign();
+  };
+
+  return (
   <div className="space-y-6">
     <div className="flex justify-between items-start">
       <div>
@@ -242,6 +271,7 @@ const CampaignDetail: React.FC<{ campaign: Campaign; onClose: () => void }> = ({
       <AssociateVendor
         preselectedCampaignId={campaign.id}
         preselectedCampaignName={campaign.name}
+        onSuccess={handleAction}
       />
     </div>
 
@@ -253,10 +283,13 @@ const CampaignDetail: React.FC<{ campaign: Campaign; onClose: () => void }> = ({
       <WithdrawToVendor
         preselectedCampaignId={campaign.id}
         preselectedCampaignName={campaign.name}
+        vendorRefreshKey={vendorRefreshKey}
+        onSuccess={handleAction}
       />
     </div>
   </div>
-);
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Campaign Card

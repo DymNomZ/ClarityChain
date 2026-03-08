@@ -23,9 +23,10 @@ interface Props {
   refreshKey?: number;
   preselectedCampaignId?: number;
   preselectedCampaignName?: string;
+  onSuccess?: () => void;
 }
 
-const AssociateVendor: React.FC<Props> = ({ refreshKey = 0, preselectedCampaignId, preselectedCampaignName }) => {
+const AssociateVendor: React.FC<Props> = ({ refreshKey = 0, preselectedCampaignId, preselectedCampaignName, onSuccess }) => {
   const [myCampaigns, setMyCampaigns] = useState<Campaign[]>([]);
   const [whitelistedVendors, setWhitelistedVendors] = useState<WhitelistedVendor[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<number | "">(preselectedCampaignId ?? "");
@@ -221,7 +222,8 @@ const AssociateVendor: React.FC<Props> = ({ refreshKey = 0, preselectedCampaignI
       setSelectedVendorAddress("");
       setCap("");
       setInstructions("");
-      setSelectedCampaign("");
+      if (preselectedCampaignId === undefined) setSelectedCampaign("");
+      onSuccess?.();
     } catch (err: any) {
       setStatus({ type: "error", message: parseContractError(err) });
     } finally {
@@ -235,7 +237,7 @@ const AssociateVendor: React.FC<Props> = ({ refreshKey = 0, preselectedCampaignI
         <h2 className="text-xl font-bold text-white">Associate a Vendor</h2>
         <p className="text-sm text-gray-400 mt-1">
           Link a whitelisted vendor to your campaign. Set their spending cap and
-          record what they're contracted to do, stored permanently on-chain.
+          record what they're contracted to do — stored permanently on-chain.
         </p>
       </div>
 
@@ -333,7 +335,7 @@ const AssociateVendor: React.FC<Props> = ({ refreshKey = 0, preselectedCampaignI
             )}
             {selectedCampaign !== "" && alreadyAllocated >= campaignGoal && (
               <p className="text-xs text-red-400 mt-0.5">
-                ⚠️ Campaign budget fully allocated, no more vendors can be added.
+                ⚠️ Campaign budget fully allocated — no more vendors can be added.
               </p>
             )}
           </div>
