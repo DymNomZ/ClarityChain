@@ -117,6 +117,16 @@ contract ClarityChain {
         bool associated;
     }
 
+    enum TxType { Donation, Withdrawal, VendorRefund }
+
+    struct Transaction {
+        TxType txType;
+        address actor;      // donor, NGO (for withdrawal), or vendor (for refund)
+        address vendor;     // populated for Withdrawal and VendorRefund; address(0) for donations
+        uint256 amount;
+        uint256 timestamp;
+    }
+
     // =========================================================================
     // STATE VARIABLES
     // =========================================================================
@@ -133,6 +143,9 @@ contract ClarityChain {
 
     mapping(uint256 => mapping(address => CampaignVendor)) public campaignVendors;
     mapping(uint256 => address[]) private campaignVendorList;
+
+    // On-chain transaction log per campaign
+    mapping(uint256 => Transaction[]) private campaignTransactions;
 
     address[5] public validators;
     uint256 public validatorCount;
@@ -271,6 +284,14 @@ contract ClarityChain {
         donorAmounts[campaignId][msg.sender] += msg.value;
         campaigns[campaignId].raisedAmount += msg.value;
 
+        campaignTransactions[campaignId].push(Transaction({
+            txType: TxType.Donation,
+            actor: msg.sender,
+            vendor: address(0),
+            amount: msg.value,
+            timestamp: block.timestamp
+        }));
+
         emit DonationReceived(campaignId, msg.sender, msg.value);
     }
 
@@ -337,6 +358,14 @@ contract ClarityChain {
         (bool success, ) = vendor.call{value: amount}("");
         if (!success) revert TransferToVendorFailed();
 
+        campaignTransactions[campaignId].push(Transaction({
+            txType: TxType.Withdrawal,
+            actor: msg.sender,
+            vendor: vendor,
+            amount: amount,
+            timestamp: block.timestamp
+        }));
+
         emit WithdrawalToVendor(campaignId, vendor, vendorNames[vendor], amount);
     }
 
@@ -375,6 +404,14 @@ contract ClarityChain {
         } else {
             c.withdrawnAmount = 0;
         }
+
+        campaignTransactions[campaignId].push(Transaction({
+            txType: TxType.VendorRefund,
+            actor: msg.sender,
+            vendor: msg.sender,
+            amount: msg.value,
+            timestamp: block.timestamp
+        }));
 
         emit VendorRefundedCampaign(campaignId, msg.sender, msg.value);
     }
@@ -650,4 +687,30 @@ contract ClarityChain {
     {
         return (verifiedIdentities[wallet], identityLinks[wallet]);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TRANSACTION HISTORY
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice Returns all recorded transactions for a campaign (donations,
+    ///         withdrawals, vendor refunds), ordered oldest-first.
+    function getTransactionsByCampaign(uint256 campaignId)
+        external
+        view
+        campaignExists(campaignId)
+        returns (Transaction[] memory)
+    {
+        return campaignTransactions[campaignId];
+    }
+
+    /// @notice Returns the number of transactions recorded for a campaign.
+    function getTransactionCount(uint256 campaignId)
+        external
+        view
+        campaignExists(campaignId)
+        returns (uint256)
+    {
+        return campaignTransactions[campaignId].length;
+    }
+
 }

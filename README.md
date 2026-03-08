@@ -122,9 +122,9 @@ Blockchain addresses are pseudonymous by default. A wallet address proves crypto
 
 | Network | Address |
 |---------|---------|
-| Polkadot Hub TestNet (Passet Hub) | `0xd8ca14ae4b8c6c497d79d85ab29467bcc4866f84` |
+| Polkadot Hub TestNet (Passet Hub) | `0xbf0a89253c1f590dcb25a4e5b7ef4b7ef691d585` |
 
-Block Explorer (verified ✅): https://blockscout-testnet.polkadot.io/address/0xd8ca14ae4b8c6c497d79d85ab29467bcc4866f84
+Block Explorer (verified ✅): https://blockscout-testnet.polkadot.io/address/0xbf0a89253c1f590dcb25a4e5b7ef4b7ef691d585
 
 The contract source code is verified on Blockscout. Anyone can read the Solidity directly on the explorer and confirm it does exactly what this README describes.
 
