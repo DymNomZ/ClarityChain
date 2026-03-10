@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from "react";
-import { VendorMap } from "../feed/page";
 import { getValidatorProfile } from "../utils/validators";
 
 export const EVENT_ICONS: Record<string, string> = {

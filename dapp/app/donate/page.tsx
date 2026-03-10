@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import CampaignCard from "../components/CampaignCard";
 import CampaignModal from "../components/CampaignModal";
 import CampaignSkeleton from "../components/CampaignSkeleton";
@@ -11,7 +11,23 @@ import { useCampaign } from "../contexts/CampaignContext";
 const CampaignList: React.FC = () => {
   const [campaignModal, setCampaignModal] = useState<Campaign | null>(null)
   const {campaigns, loading, fetchCampaigns} = useCampaign();
+  const [query, setQuery] = useState("");
+  const [queriedCampaigns, setQueriedCampaigns] = useState<Campaign[]>(campaigns);
   const [filter, setFilter] = useState<"active" | "completed">("active");
+
+  const activeCampaigns = campaigns.filter(c => c.raisedAmount < c.goalAmount);
+  const completedCampaigns = campaigns.filter(c => c.raisedAmount >= c.goalAmount);
+
+  useEffect(() => {
+    const filteredCampaigns = filter === "active" ? activeCampaigns : completedCampaigns;
+
+    if (query.trim() === "") {
+      setQueriedCampaigns(filteredCampaigns);
+    } else {
+      const lowerQuery = query.toLowerCase();
+      setQueriedCampaigns(filteredCampaigns.filter(c => c.name.toLowerCase().includes(lowerQuery) || c.ngo.toLowerCase().includes(lowerQuery)));
+    }
+  }, [query, campaigns, filter]);
 
   if (loading) {
     return <>
@@ -40,10 +56,6 @@ const CampaignList: React.FC = () => {
     </>;
   }
 
-  const activeCampaigns = campaigns.filter(c => c.raisedAmount < c.goalAmount);
-  const completedCampaigns = campaigns.filter(c => c.raisedAmount >= c.goalAmount);
-  const filteredCampaigns = filter === "active" ? activeCampaigns : completedCampaigns;
-
   return <>
     <NavigationBar activeTab="donate" />
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -56,23 +68,31 @@ const CampaignList: React.FC = () => {
             </div>
             <RefreshButton onClick={fetchCampaigns} className="shrink-0 mt-1" />
           </div>
-          <div className="flex rounded-lg overflow-hidden border border-gray-700 text-sm w-fit">
-            <button
-              onClick={() => setFilter("active")}
-              className={`px-4 py-1.5 font-medium transition ${filter === "active" ? "bg-green-800 text-green-300" : "bg-gray-800 text-gray-400 hover:text-white"}`}
-            >
-              🟢 Active <span className="ml-1 text-xs opacity-70">({activeCampaigns.length})</span>
-            </button>
-            <button
-              onClick={() => setFilter("completed")}
-              className={`px-4 py-1.5 font-medium transition ${filter === "completed" ? "bg-teal-800 text-teal-300" : "bg-gray-800 text-gray-400 hover:text-white"}`}
-            >
-              ✅ Completed <span className="ml-1 text-xs opacity-70">({completedCampaigns.length})</span>
-            </button>
+          <div className="grid grid-cols-4">
+            <div className="col-span-2 flex rounded-lg overflow-hidden border border-gray-700 text-sm w-fit">
+              <button
+                onClick={() => setFilter("active")}
+                className={`px-4 py-1.5 font-medium transition ${filter === "active" ? "bg-green-800 text-green-300" : "bg-gray-800 text-gray-400 hover:text-white"}`}
+              >
+                🟢 Active <span className="ml-1 text-xs opacity-70">({activeCampaigns.length})</span>
+              </button>
+              <button
+                onClick={() => setFilter("completed")}
+                className={`px-4 py-1.5 font-medium transition ${filter === "completed" ? "bg-teal-800 text-teal-300" : "bg-gray-800 text-gray-400 hover:text-white"}`}
+              >
+                ✅ Completed <span className="ml-1 text-xs opacity-70">({completedCampaigns.length})</span>
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="🔍 Search campaigns"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="col-span-1 col-start-4 rounded-lg px-3 py-2 bg-gray-800 border border-gray-700 text-gray-400 placeholder:text-gray-500 focus:ring-1 focus:ring-pink-500 focus:outline-none"
+            />
           </div>
         </div>
-
-        {filteredCampaigns.map((campaign) => (
+        {queriedCampaigns.map((campaign) => (
           <CampaignCard key={campaign.id} campaign={campaign} setCampaignModal={setCampaignModal} />
         ))}
       </div>

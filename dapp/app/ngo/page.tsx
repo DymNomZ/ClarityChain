@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { formatEther, parseEther } from "viem";
 import ApplyForVerification from "../components/ApplyForVerification";
 import AssociateVendor from "../components/AssociateVendor";
+import { CloseButton } from "../components/CloseButton";
 import NavigationBar from "../components/NavigationBar";
 import WithdrawToVendor from "../components/WithdrawToVendor";
 import { useAuth } from "../contexts/AuthContext";
@@ -462,12 +463,7 @@ const MyCampaignsPage: React.FC = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold text-white">Identity Verification</h2>
-              <button
-                onClick={() => setModal({ type: "none" })}
-                className="text-gray-500 hover:text-white text-xl leading-none"
-              >
-                ✕
-              </button>
+              <CloseButton onClick={() => setModal({ type: "none" })} />
             </div>
             <ApplyForVerification key={account ?? "none"} />
           </div>

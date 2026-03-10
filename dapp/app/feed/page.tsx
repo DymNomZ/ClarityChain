@@ -1,13 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { formatEther } from "viem";
+import React, { useState } from "react";
 import { FeedSkeleton } from "../components/FeedSkeleton";
 import NavigationBar from "../components/NavigationBar";
 import RefreshButton from "../components/RefreshButton";
 import TransactionCard, { EVENT_ICONS } from "../components/TransactionCard";
-import { CONTRACT_ABI, CONTRACT_ADDRESS } from "../utils/contract";
-import { publicClient } from "../utils/viem";
+import { useFeed } from "../contexts/FeedContext";
 
 const EVENT_DESCRIPTIONS: Record<string, string> = {
   CampaignCreated: "An NGO opened a new fundraising campaign",
@@ -27,101 +25,8 @@ const EVENT_DESCRIPTIONS: Record<string, string> = {
 };
 
 const TransactionFeed: React.FC = () => {
-  const [events, setEvents] = useState<FeedEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string>("");
+  const {vendorMap, events, loading, fetchError, fetchEvents} = useFeed()
   const [showLegend, setShowLegend] = useState(false);
-  const [vendorMap, setVendorMap] = useState<VendorMap>(new Map());
-
-  // Fetch all whitelisted vendors once on mount — builds a Map for O(1) lookup per field
-  useEffect(() => {
-    const fetchVendorMap = async () => {
-      try {
-        const result = await publicClient.readContract({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
-          functionName: "getWhitelistedVendors",
-        }) as [string[], string[]];
-
-        const map: VendorMap = new Map();
-        result[0].forEach((addr, i) => {
-          const parts = result[1][i].split("|");
-          map.set(addr.toLowerCase(), {
-            name: parts[0],
-            links: parts.slice(1).filter((l) => l.startsWith("http")),
-          });
-        });
-        setVendorMap(map);
-      } catch {
-        // Non-fatal — feed still works, just no vendor badges
-      }
-    };
-    fetchVendorMap();
-  }, []);
-
-  const fetchEvents = async () => {
-    try {
-      setLoading(true);
-      setFetchError("");
-
-      const logs = await publicClient.getLogs({
-        address: CONTRACT_ADDRESS,
-        fromBlock: 0n,
-        toBlock: "latest",
-      });
-
-      const parsed: FeedEvent[] = [];
-      const { decodeEventLog } = await import("viem");
-
-      for (const log of logs) {
-        try {
-          const decoded = decodeEventLog({
-            abi: CONTRACT_ABI,
-            data: log.data,
-            topics: log.topics,
-          });
-
-          const eventName = decoded.eventName as unknown as string;
-          const args = decoded.args as Record<string, any>;
-          const data: Record<string, string> = {};
-
-          for (const [key, val] of Object.entries(args)) {
-            if (typeof val === "bigint") {
-              // Amounts are in wei — only format as PAS if they look like token amounts
-              data[key] = val > 1_000_000_000n ? `${formatEther(val)} PAS` : val.toString();
-            } else if (typeof val === "string") {
-              data[key] = val;
-            } else if (typeof val === "boolean") {
-              data[key] = val ? "Yes" : "No";
-            } else {
-              data[key] = String(val);
-            }
-          }
-
-          parsed.push({
-            type: eventName,
-            txHash: log.transactionHash || "",
-            blockNumber: log.blockNumber || 0n,
-            data,
-          });
-        } catch {
-          continue;
-        }
-      }
-
-      parsed.reverse();
-      setEvents(parsed);
-    } catch (err: any) {
-      console.error("Failed to fetch events:", err);
-      setFetchError("Failed to load transaction history. Check your network connection and try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEvents();
-  }, []);
 
   return <>
     <NavigationBar activeTab="feed" />

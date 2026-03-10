@@ -5,6 +5,7 @@ import PageHeader from "./components/PageHeader";
 import TaglineBanner from "./components/TaglineBanner";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CampaignProvider } from "./contexts/CampaignContext";
+import { FeedProvider } from "./contexts/FeedContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,19 +31,21 @@ export default function RootLayout({
   return (
     <AuthProvider>
       <CampaignProvider>
-        <html lang="en">
-          <body
-            className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gray-950! flex flex-col`} 
-            suppressHydrationWarning
-          >
-            <main className="bg-gray-950 text-white">
-              <PageHeader />
-              <TaglineBanner />
-              { children }
-            </main>
-            <PageFooter />
-          </body>
-        </html>
+        <FeedProvider>
+          <html lang="en">
+            <body
+              className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gray-950! flex flex-col`} 
+              suppressHydrationWarning
+            >
+              <main className="bg-gray-950 text-white">
+                <PageHeader />
+                <TaglineBanner />
+                { children }
+              </main>
+              <PageFooter />
+            </body>
+          </html>
+        </FeedProvider>
       </CampaignProvider>
     </AuthProvider>
   );
