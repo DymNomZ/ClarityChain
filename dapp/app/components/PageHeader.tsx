@@ -8,10 +8,10 @@ export default function PageHeader() {
             <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
             <div>
                 <h1 className="text-2xl font-black text-white tracking-tight">
-                Clarity<span className="text-pink-500">Chain</span>
+                    Clarity<span className="text-pink-500">Chain</span>
                 </h1>
                 <p className="text-xs text-gray-400 mt-0.5">
-                Built on Polkadot Hub
+                    Built on Polkadot Hub
                 </p>
             </div>
             <WalletConnect />

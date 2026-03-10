@@ -1,15 +1,17 @@
+'use client'
+
 import { ChangeEvent, useEffect, useState } from "react";
-import { parseEther, formatEther } from "viem";
+import { formatEther, parseEther } from "viem";
 import { useAuth } from "../contexts/AuthContext";
-import { getWalletClient, polkadotTestnet, publicClient } from "../utils/viem";
+import { useCampaign } from "../contexts/CampaignContext";
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from "../utils/contract";
 import { parseContractError } from "../utils/errors";
+import { getWalletClient, polkadotTestnet, publicClient } from "../utils/viem";
 import VerifiedBadge from "./VerifiedBadge";
 
 interface CampaignCardProps {
     campaign: Campaign,
-    fetchCampaigns: () => void,
-    setCampaignModal: (campaign: Campaign | null) => void
+    setCampaignModal?: (campaign: Campaign | null) => void
 }
 
 const getProgressPercent = (raised: bigint, goal: bigint) => {
@@ -23,12 +25,13 @@ const getCampaignStatusLabel = (campaign: Campaign) => {
     return { label: "Active", classes: "bg-green-900 text-green-300" };
 };
 
-export default function CampaignCard({campaign, fetchCampaigns, setCampaignModal}: CampaignCardProps) {
+export default function CampaignCard({campaign, setCampaignModal}: CampaignCardProps) {
     const [donation, setDonation] = useState<string>('');
     const [submitting, setSubmitting] = useState<boolean>(false);
     const [type, setType] = useState<string>('')
     const [message, setMessage] = useState<string | null>(null);
     const {account} = useAuth();
+    const {fetchCampaigns} = useCampaign();
 
     useEffect(() => {
         setDonation('')
@@ -116,11 +119,11 @@ export default function CampaignCard({campaign, fetchCampaigns, setCampaignModal
     const statusLabel = getCampaignStatusLabel(campaign);
 
     return (
-        <div onDoubleClick={() => setCampaignModal(campaign)} className={`rounded-xl border hover:border-pink-300 duration-150 p-5 space-y-4 ${campaign.active ? "border-pink-500 bg-gray-900" : "border-gray-600 bg-gray-800 opacity-60"}`}>
+        <div onDoubleClick={() => setCampaignModal?.(campaign)} className={`rounded-xl border hover:border-pink-300 duration-150 p-5 space-y-4 ${campaign.active ? "border-pink-500 bg-gray-900" : "border-gray-600 bg-gray-800 opacity-60"}`}>
             <div className="flex justify-between items-start">
                 <div>
                     <h3 className="text-lg font-bold text-white">{campaign.name}</h3>
-                    <p className="text-xs text-gray-400 mt-1 break-all flex items-start gap-1 flex-wrap">NGO: {campaign.ngo} <VerifiedBadge address={campaign.ngo} /></p>
+                    <p onDoubleClick={(e) => e.stopPropagation()} className="text-xs text-gray-400 mt-1 break-all flex items-start gap-1 flex-wrap">NGO: {campaign.ngo} <VerifiedBadge address={campaign.ngo} /></p>
                 </div>
                 <span className={`text-xs px-2 py-1 rounded-full font-semibold shrink-0 ml-2 ${statusLabel.classes}`}>
                   {statusLabel.label}

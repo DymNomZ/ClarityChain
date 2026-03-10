@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { AuthProvider } from "./contexts/AuthContext";
+import PageFooter from "./components/PageFooter";
 import PageHeader from "./components/PageHeader";
 import TaglineBanner from "./components/TaglineBanner";
-import PageFooter from "./components/PageFooter";
+import { AuthProvider } from "./contexts/AuthContext";
+import { CampaignProvider } from "./contexts/CampaignContext";
+import "./globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,19 +29,21 @@ export default function RootLayout({
 }>) {
   return (
     <AuthProvider>
-      <html lang="en">
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen !bg-gray-950 flex flex-col`} 
-          suppressHydrationWarning
-        >
-          <main className="bg-gray-950 text-white">
-            <PageHeader />
-            <TaglineBanner />
-            { children }
-          </main>
-          <PageFooter />
-        </body>
-      </html>
+      <CampaignProvider>
+        <html lang="en">
+          <body
+            className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gray-950! flex flex-col`} 
+            suppressHydrationWarning
+          >
+            <main className="bg-gray-950 text-white">
+              <PageHeader />
+              <TaglineBanner />
+              { children }
+            </main>
+            <PageFooter />
+          </body>
+        </html>
+      </CampaignProvider>
     </AuthProvider>
   );
 }

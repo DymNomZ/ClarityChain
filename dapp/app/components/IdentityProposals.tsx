@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { publicClient, getWalletClient } from "../utils/viem";
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
-import { parseContractError } from "../utils/errors";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { CONTRACT_ABI, CONTRACT_ADDRESS } from "../utils/contract";
+import { parseContractError } from "../utils/errors";
+import { getWalletClient, publicClient } from "../utils/viem";
+import RefreshButton from "./RefreshButton";
 
 interface IdentityProposal {
   id: number;
@@ -167,9 +168,7 @@ const IdentityProposals: React.FC = () => {
             Review applicant links and sign to verify their identity on-chain.
           </p>
         </div>
-        <button onClick={refresh} className="text-sm text-pink-400 hover:text-pink-300">
-          ↻ Refresh
-        </button>
+        <RefreshButton onClick={refresh} />
       </div>
 
       {loading ? (

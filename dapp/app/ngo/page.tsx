@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { publicClient, getWalletClient } from "../utils/viem";
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
-import { parseEther, formatEther } from "viem";
-import { useAuth } from "../contexts/AuthContext";
-import AssociateVendor from "../components/AssociateVendor";
-import WithdrawToVendor from "../components/WithdrawToVendor";
+import React, { useEffect, useState } from "react";
+import { formatEther, parseEther } from "viem";
 import ApplyForVerification from "../components/ApplyForVerification";
+import AssociateVendor from "../components/AssociateVendor";
 import NavigationBar from "../components/NavigationBar";
+import WithdrawToVendor from "../components/WithdrawToVendor";
+import { useAuth } from "../contexts/AuthContext";
+import { useCampaign } from "../contexts/CampaignContext";
+import { CONTRACT_ABI, CONTRACT_ADDRESS } from "../utils/contract";
+import { getWalletClient, publicClient } from "../utils/viem";
 
 interface Campaign {
   id: number;
@@ -341,51 +342,10 @@ const CampaignCard: React.FC<{ campaign: Campaign; onClick: () => void }> = ({
 // ---------------------------------------------------------------------------
 
 const MyCampaignsPage: React.FC = () => {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {myCampaigns, loading, fetchCampaigns} = useCampaign();
   const [modal, setModal] = useState<ModalState>({ type: "none" });
   const [filter, setFilter] = useState<"active" | "completed">("active");
   const { account } = useAuth();
-
-  const fetchCampaigns = useCallback(async () => {
-    if (!account) { setCampaigns([]); setLoading(false); return; }
-    try {
-      setLoading(true);
-      const count = await publicClient.readContract({
-        address: CONTRACT_ADDRESS,
-        abi: CONTRACT_ABI,
-        functionName: "campaignCount",
-      }) as bigint;
-
-      const mine: Campaign[] = [];
-      for (let i = 0; i < Number(count); i++) {
-        const result = await publicClient.readContract({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
-          functionName: "getCampaign",
-          args: [BigInt(i)],
-        }) as [string, string, bigint, bigint, bigint, boolean, boolean];
-
-        if (result[1].toLowerCase() === account.toLowerCase()) {
-          mine.push({
-            id: i,
-            name: result[0],
-            goalAmount: result[2],
-            raisedAmount: result[3],
-            withdrawnAmount: result[4],
-            active: result[5],
-          });
-        }
-      }
-      setCampaigns([...mine].reverse());
-    } catch (err) {
-      console.error("Failed to fetch campaigns:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [account]);
-
-  useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
 
   // Clear modal and filter on wallet switch
   useEffect(() => { setModal({ type: "none" }); setFilter("active"); }, [account]);
@@ -431,7 +391,7 @@ const MyCampaignsPage: React.FC = () => {
               <div key={i} className="rounded-xl border border-gray-800 bg-gray-900 p-4 animate-pulse h-24" />
             ))}
           </div>
-        ) : campaigns.length === 0 ? (
+        ) : myCampaigns.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-700 bg-gray-900 p-12 text-center space-y-3">
             <p className="text-gray-400">You haven't created any campaigns yet.</p>
             <button
@@ -445,8 +405,8 @@ const MyCampaignsPage: React.FC = () => {
           <>
             {/* Filter toggle */}
             {(() => {
-              const active = campaigns.filter(c => c.raisedAmount < c.goalAmount);
-              const completed = campaigns.filter(c => c.raisedAmount >= c.goalAmount);
+              const active = myCampaigns.filter(c => c.raisedAmount < c.goalAmount);
+              const completed = myCampaigns.filter(c => c.raisedAmount >= c.goalAmount);
               const filtered = filter === "active" ? active : completed;
               return (
                 <>

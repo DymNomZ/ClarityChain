@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { publicClient, getWalletClient } from "../utils/viem";
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../utils/contract";
-import { parseContractError } from "../utils/errors";
+import React, { useEffect, useState } from "react";
 import { formatEther } from "viem";
-import { useAuth } from "../contexts/AuthContext";
-import NavigationBar from "../components/NavigationBar";
 import IdentityProposals from "../components/IdentityProposals";
+import NavigationBar from "../components/NavigationBar";
+import RefreshButton from "../components/RefreshButton";
+import { useAuth } from "../contexts/AuthContext";
+import { CONTRACT_ABI, CONTRACT_ADDRESS } from "../utils/contract";
+import { parseContractError } from "../utils/errors";
+import { getWalletClient, publicClient } from "../utils/viem";
 
 // =============================================================================
 // Helpers
@@ -529,7 +530,7 @@ const VendorManagement: React.FC = () => {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold text-white">Vendor Proposals</h2>
-            <button onClick={fetchProposals} className="text-sm text-pink-400 hover:text-pink-300">↻ Refresh</button>
+            <RefreshButton onClick={fetchProposals} />
           </div>
 
           {loadingProposals ? (

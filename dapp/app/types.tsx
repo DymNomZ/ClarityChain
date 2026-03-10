@@ -7,4 +7,16 @@ interface Campaign {
   withdrawnAmount: bigint;
   active: boolean;
   refundsEnabled: boolean;
+  vendors: string[]
 }
+
+interface FeedEvent {
+  type: string;
+  txHash: string;
+  blockNumber: bigint;
+  data: Record<string, string>;
+}
+
+// Vendor map fetched once at TransactionFeed level and passed as prop.
+// Map key is lowercase address, value is { name, links }.
+type VendorMap = Map<string, { name: string; links: string[] }>;
