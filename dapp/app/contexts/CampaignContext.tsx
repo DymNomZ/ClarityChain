@@ -81,8 +81,8 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
             setCampaigns(fetched);
 
             if (account != null) {
-                setVendorCampaigns(fetched.filter((campaign) => campaign.vendors.includes(account)))
-                setMyCampaigns(fetched.filter((campaign) => campaign.ngo == account))
+                setVendorCampaigns(fetched.filter((campaign) => campaign.vendors.some((vendor) => vendor.toLowerCase() == account)))
+                setMyCampaigns(fetched.filter((campaign) => campaign.ngo.toLowerCase() == account))
             } else {
                 setVendorCampaigns([])
                 setMyCampaigns([])
@@ -97,7 +97,7 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         fetchCampaigns()
-    }, [])
+    }, [account])
 
     return (
         <CampaignContext.Provider value={{
