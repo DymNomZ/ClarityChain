@@ -82,7 +82,7 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
 
             if (account != null) {
                 setVendorCampaigns(fetched.filter((campaign) => campaign.vendors.includes(account)))
-                setMyCampaigns(fetched.filter((campaign) => campaign.ngo === account))
+                setMyCampaigns(fetched.filter((campaign) => campaign.ngo == account))
             } else {
                 setVendorCampaigns([])
                 setMyCampaigns([])

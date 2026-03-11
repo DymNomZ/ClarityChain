@@ -1,10 +1,11 @@
 'use client'
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { formatEther } from "viem";
+import { formatEther, parseAbiItem } from "viem";
 import { abortableFetch } from "../utils/abortableFetch";
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from "../utils/contract";
 import { publicClient } from "../utils/viem";
+import { useCampaign } from "./CampaignContext";
 
 interface FeedContextType {
     vendorMap: VendorMap,
@@ -23,6 +24,7 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
     const [fetchError, setFetchError] = useState("");
     const abortVendor = useRef(new AbortController());
     const abortFeed = useRef(new AbortController());
+    const {campaigns} = useCampaign()
 
     const fetchVendorMap = async () => {
         try {
@@ -73,8 +75,10 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
             );
 
             const parsed: FeedEvent[] = [];
+            const txHashIndexMap = new Map<string, number>();
             const { decodeEventLog } = await import("viem");
-    
+            
+            var i = 0;
             for (const log of logs) {
                 try {
                     const decoded = decodeEventLog({
@@ -106,8 +110,33 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
                         blockNumber: log.blockNumber || 0n,
                         data,
                     });
+
+                    if (log.transactionHash) {
+                        txHashIndexMap.set(log.transactionHash, i++);
+                    }
                 } catch {
                     continue;
+                }
+            }
+
+            for (const campaign of campaigns) {
+                const eventExtData = await abortableFetch(publicClient.getLogs({
+                    address: CONTRACT_ADDRESS,
+                    events: [
+                        parseAbiItem("event DonationReceived(uint256 indexed campaignId, address indexed donor, uint256 amount)"),
+                        parseAbiItem("event WithdrawalToVendor(uint256 indexed campaignId, address indexed vendor, string vendorName, uint256 amount)"),
+                    ],
+                    args: { campaignId: BigInt(campaign.id) } as any,
+                    fromBlock: 0n,
+                }), abortFeed.current.signal);
+
+                for (const extLog of eventExtData) {
+                    if (extLog.transactionHash) {
+                        const index = txHashIndexMap.get(extLog.transactionHash);
+                        if (index !== undefined) {
+                            parsed[index].campaignId = campaign.id;
+                        }
+                    }
                 }
             }
     
@@ -124,7 +153,7 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         fetchEvents();
-    }, []);
+    }, [campaigns]);
 
     return (
         <FeedContext.Provider value={{

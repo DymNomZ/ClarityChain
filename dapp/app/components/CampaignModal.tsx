@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFeed } from "../contexts/FeedContext";
 import { CloseButton } from "./CloseButton";
 import { FeedModalSkeleton } from "./FeedSkeleton";
@@ -15,53 +15,13 @@ interface CampaignModalProps {
 
 export default function CampaignModal({campaign, setCampaign}: CampaignModalProps) {
     const {vendorMap, events, loading, fetchError, fetchEvents} = useFeed()
-    // const [events, setEvents] = useState<FeedEvent[]>([]);
-    // const [loading, setLoading] = useState(true);
-    // const [fetchError, setFetchError] = useState<string>("");
+    const [campaignEvents, setCampaignEvents] = useState<FeedEvent[]>([])
     const abortFetch = useRef<AbortController>(new AbortController())
-
-    // async function fetchCampaignTransactions() {
-    //     try {
-    //         abortFetch.current.abort()
-    //         abortFetch.current = new AbortController()
-    //         setLoading(true);
-    //         setFetchError("");
-
-    //         const feedData = await abortableFetch(publicClient.readContract({
-    //             address: CONTRACT_ADDRESS,
-    //             abi: CONTRACT_ABI,
-    //             functionName: "getTransactionsByCampaign",
-    //             args: [campaign!.id],
-    //         }), abortFetch.current.signal) as any[]
-
-    //         // const formattedEvents: FeedEvent[] = feedData.map((e) => ({
-    //         //     type: e.eventType,
-    //         //     timestamp: Number(e.timestamp) * 1000,
-    //         //     details: e.details,
-    //         // }));
-    //     } catch (err) {
-    //         if (err instanceof DOMException && err.name === "AbortError") {
-    //             // Fetch was aborted, likely due to account change — ignore this error
-    //             return;
-    //         }
-    //         console.error("Error fetching transactions:", err);
-    //         setFetchError("Unable to fetch transactions for this campaign. Please try again.");
-    //     }
-    // }
 
     useEffect(() => {
         if (campaign) {
             document.body.classList.add('overflow-hidden');
-            // setCampaignEvents(events.filter(e => e. === campaign.id))
-
-            // publicClient.readContract({
-            //         address: CONTRACT_ADDRESS,
-            //         abi: CONTRACT_ABI,
-            //         functionName: "getTransactionsByCampaign",
-            //         args: [BigInt(campaign.id)],
-            // }).then((data) => {
-            //     console.log("Transactions for campaign", campaign.id, data);
-            // })
+            setCampaignEvents(events.filter(e => e.campaignId === campaign.id))
         }
 
         return () => {
@@ -94,13 +54,13 @@ export default function CampaignModal({campaign, setCampaign}: CampaignModalProp
                     <FeedModalSkeleton />
                     <FeedModalSkeleton />
                 </div>
-            ) : events.length === 0 ? (
+            ) : campaignEvents.length === 0 ? (
                 <div className="rounded-xl border border-gray-700 bg-gray-900 p-12 text-center">
                     <p className="text-gray-400">No transactions yet.</p>
                 </div>
             ) : (
                 <div className="space-y-3">
-                {events.map((event, index) => (
+                {campaignEvents.map((event, index) => (
                     <TransactionCard key={index} event={event} backgroundColor="bg-gray-800" vendorMap={vendorMap} />
                 ))}
                 </div>

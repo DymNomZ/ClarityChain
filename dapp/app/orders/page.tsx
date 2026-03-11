@@ -1,16 +1,25 @@
 'use client'
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import CampaignCard from "../components/CampaignCard";
 import CampaignModal from "../components/CampaignModal";
 import CampaignSkeleton from "../components/CampaignSkeleton";
 import NavigationBar from "../components/NavigationBar";
 import RefreshButton from "../components/RefreshButton";
+import { useAuth } from "../contexts/AuthContext";
 import { useCampaign } from "../contexts/CampaignContext";
 
 export default function OrdersPage() {
     const [campaignModal, setCampaignModal] = useState<Campaign | null>(null)
     const {vendorCampaigns, loading, fetchCampaigns} = useCampaign();
+    const {isVendorWhitelisted} = useAuth()
+
+    if (!isVendorWhitelisted) {
+        const router = useRouter()
+        router.push("/donate")
+        return null;
+    }
 
     if (loading) {
         return <>

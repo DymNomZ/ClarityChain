@@ -25,7 +25,7 @@ export default function NavigationBar({ activeTab }: NavigationBarProps) {
         { id: "feed", label: "Public Feed", icon: "📡" },
     ];
 
-    if (!isVendorWhitelisted) {
+    if (isVendorWhitelisted) {
         tabs.push({ id: "orders", label: "Vendor Dashboard", icon: "🏪" });
     }
 

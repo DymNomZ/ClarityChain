@@ -15,6 +15,7 @@ interface FeedEvent {
   txHash: string;
   blockNumber: bigint;
   data: Record<string, string>;
+  campaignId?: number;
 }
 
 // Vendor map fetched once at TransactionFeed level and passed as prop.
