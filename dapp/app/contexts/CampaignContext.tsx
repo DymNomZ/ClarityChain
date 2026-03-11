@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { abortableFetch } from "../utils/abortableFetch";
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from "../utils/contract";
 import { publicClient } from "../utils/viem";
 import { useAuth } from "./AuthContext";
@@ -26,23 +27,17 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
 
     const fetchCampaigns = async () => {
         try {
-            setLoading(true);
             abortController.current.abort()
             abortController.current = new AbortController()
+            setLoading(true);
 
-            const countPromise = publicClient.readContract({
-                address: CONTRACT_ADDRESS,
-                abi: CONTRACT_ABI,
-                functionName: "campaignCount",
-            });
-    
-            const abortPromise = new Promise((_, reject) => {
-                abortController.current.signal.addEventListener("abort", () =>
-                    reject(new DOMException("Aborted", "AbortError"))
-                );
-            });
-
-            const count = await Promise.race([countPromise, abortPromise]) as bigint
+            const count = await abortableFetch(
+                publicClient.readContract({
+                    address: CONTRACT_ADDRESS,
+                    abi: CONTRACT_ABI,
+                    functionName: "campaignCount",
+                }), abortController.current.signal
+            ) as bigint
 
             const fetched: Campaign[] = [];
             for (let i = 0; i < Number(count); i++) {
@@ -54,17 +49,23 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
                     args: [BigInt(i)],
                 })
 
-                const result = await Promise.race([campaignPromise, abortPromise]) as any
+                const result = await abortableFetch(
+                    publicClient.readContract({
+                        address: CONTRACT_ADDRESS,
+                        abi: CONTRACT_ABI,
+                        functionName: "getCampaign",
+                        args: [BigInt(i)],
+                    }), abortController.current.signal
+                ) as any
 
-                const vendorsPromise = publicClient.readContract({
-                    address: CONTRACT_ADDRESS,
-                    abi: CONTRACT_ABI,
-                    functionName: "getCampaignVendorList",
-                    args: [BigInt(i)],
-                })
-
-
-                const vendors = await Promise.race([vendorsPromise, abortPromise]) as string[]
+                const vendors = await abortableFetch(
+                    publicClient.readContract({
+                        address: CONTRACT_ADDRESS,
+                        abi: CONTRACT_ABI,
+                        functionName: "getCampaignVendorList",
+                        args: [BigInt(i)],
+                    }), abortController.current.signal
+                ) as string[]
         
                 fetched.push({
                     id: i,
@@ -90,9 +91,8 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
         } catch (err: any) {
             if (err.name === "AbortError") return; // Cancelled
             console.error("Failed to fetch campaigns:", err);
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
     };
 
     useEffect(() => {

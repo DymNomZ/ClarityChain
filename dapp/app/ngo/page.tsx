@@ -173,7 +173,7 @@ const ModalOverlay: React.FC<{ onClose: () => void; children: React.ReactNode }>
     onClick={onClose}
   >
     <div
-      className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 shadow-2xl"
+      className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 shadow-2xl scrollbar scrollbar-thumb-gray-800 scrollbar-hover:scrollbar-thumb-gray-700"
       onClick={(e) => e.stopPropagation()}
     >
       {children}

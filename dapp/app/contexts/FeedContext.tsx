@@ -146,9 +146,8 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
             if (err.name === "AbortError") return;
             console.error("Failed to fetch events:", err);
             setFetchError("Failed to load transaction history. Check your network connection and try again.");
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
       };
 
     useEffect(() => {
