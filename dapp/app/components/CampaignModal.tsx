@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useFeed } from "../contexts/FeedContext";
 import { CloseButton } from "./CloseButton";
 import { FeedModalSkeleton } from "./FeedSkeleton";
@@ -16,7 +16,6 @@ interface CampaignModalProps {
 export default function CampaignModal({campaign, setCampaign}: CampaignModalProps) {
     const {vendorMap, events, loading, fetchError, fetchEvents} = useFeed()
     const [campaignEvents, setCampaignEvents] = useState<FeedEvent[]>([])
-    const abortFetch = useRef<AbortController>(new AbortController())
 
     useEffect(() => {
         if (campaign) {
@@ -26,7 +25,6 @@ export default function CampaignModal({campaign, setCampaign}: CampaignModalProp
 
         return () => {
             document.body.classList.remove('overflow-hidden');
-            abortFetch.current.abort()
         };
     }, [campaign]);
 
