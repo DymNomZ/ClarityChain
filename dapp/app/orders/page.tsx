@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CampaignCard from "../components/CampaignCard";
 import CampaignModal from "../components/CampaignModal";
 import CampaignSkeleton from "../components/CampaignSkeleton";
@@ -14,12 +14,13 @@ export default function OrdersPage() {
     const [campaignModal, setCampaignModal] = useState<Campaign | null>(null)
     const {vendorCampaigns, loading, fetchCampaigns} = useCampaign();
     const {isVendorWhitelisted} = useAuth()
+    const router = useRouter()
 
-    if (!isVendorWhitelisted) {
-        const router = useRouter()
-        router.push("/donate")
-        return null;
-    }
+    useEffect(() => {
+        if (!isVendorWhitelisted) {
+            router.push("/donate")
+        }
+    }, [isVendorWhitelisted])
 
     if (loading) {
         return <>
