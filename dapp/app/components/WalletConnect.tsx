@@ -7,9 +7,9 @@
 // or networks mid-session.
 // =============================================================================
 
-import React, { useState, useEffect } from "react";
-import { polkadotTestnet } from "../utils/viem";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { polkadotTestnet } from "../utils/viem";
 
 const WalletConnect: React.FC = () => {
   const { account, setAccount } = useAuth()
@@ -21,7 +21,10 @@ const WalletConnect: React.FC = () => {
   // Issue #11: Listen for MetaMask account and network changes
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (typeof window === "undefined" || !window.ethereum) return;
+    if (typeof window === "undefined") return;
+    
+    const ethereum = window.ethereum;
+    if (!ethereum) return;
 
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length === 0) {
@@ -38,13 +41,13 @@ const WalletConnect: React.FC = () => {
       window.location.reload();
     };
 
-    window.ethereum.on("accountsChanged", handleAccountsChanged);
-    window.ethereum.on("chainChanged", handleChainChanged);
+    ethereum.on("accountsChanged", handleAccountsChanged);
+    ethereum.on("chainChanged", handleChainChanged);
 
     // Cleanup listeners on unmount
     return () => {
-      window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
-      window.ethereum.removeListener("chainChanged", handleChainChanged);
+      ethereum.removeListener("accountsChanged", handleAccountsChanged);
+      ethereum.removeListener("chainChanged", handleChainChanged);
     };
   }, [setAccount]);
 
