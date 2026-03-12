@@ -13,6 +13,7 @@ export interface ValidatorProfile {
 
 // Keys are lowercase wallet addresses.
 export const VALIDATOR_PROFILES: Record<string, ValidatorProfile> = {
+  // Dymes
   "0x75c71fbb2048df9461f27ae7476db45fddffa1d7": {
     name: "Government Unit",
     links: ["https://faucet.polkadot.io/"],
@@ -22,6 +23,19 @@ export const VALIDATOR_PROFILES: Record<string, ValidatorProfile> = {
     links: ["https://faucet.polkadot.io/"],
   },
   "0xe8ff0f4efae291263b1438c9c6441f6a6c9eb0e2": {
+    name: "Academic Institution",
+    links: ["https://faucet.polkadot.io/"],
+  },
+  // Zillion
+  "0xd9a2F88dFbe0133Ed78B2f0515BaF6D08443FD47": {
+    name: "Government Unit",
+    links: ["https://faucet.polkadot.io/"],
+  },
+  "0x5CfF8a6E17EdB109A678bfb9347E99c9b4E1569E": { // Zillion Validator
+    name: "Civic Organization",
+    links: ["https://faucet.polkadot.io/"],
+  },
+  "0x42cCA21cfbea77b341bBC64105b66FD79B6b3060": { // Zillion Vendor
     name: "Academic Institution",
     links: ["https://faucet.polkadot.io/"],
   },

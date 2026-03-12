@@ -25,9 +25,9 @@ export default function NavigationBar({ activeTab }: NavigationBarProps) {
         { id: "feed", label: "Public Feed", icon: "📡" },
     ];
 
-    if (isVendorWhitelisted) {
-        tabs.push({ id: "orders", label: "Vendor Dashboard", icon: "🏪" });
-    }
+    // if (isVendorWhitelisted) {
+    //     tabs.push({ id: "orders", label: "Vendor Dashboard", icon: "🏪" });
+    // }
 
     function navigate(tabId: string) {
         if (tabId != activeTab) {
@@ -58,7 +58,7 @@ export default function NavigationBar({ activeTab }: NavigationBarProps) {
                         <NavigationButton key={tab.id} tab={tab} />
                     ))}
 
-                    { isVendorWhitelisted ? <NavigationButton key={"orders"} tab={{ id: "orders", label: "Vendor Dashboard", icon: "🏪" }} /> : ''}
+                    {/* { isVendorWhitelisted ? <NavigationButton key={"orders"} tab={{ id: "orders", label: "Vendor Dashboard", icon: "🏪" }} /> : ''} */}
                 </div>
             </div>
         </div>

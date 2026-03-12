@@ -23,9 +23,14 @@ dotenv.config();
 // All three need to be MetaMask wallets connected to Passet Hub.
 // -----------------------------------------------------------------------------
 const VALIDATORS: `0x${string}`[] = [
+  // Dymes
   "0x75c71fBb2048Df9461f27ae7476Db45FddFfa1D7",
   "0x7077Bd1b0ee55F4A7a2B3FEf4c916e35B8547B7F",
   "0xe8ff0f4efae291263b1438C9c6441f6a6c9Eb0e2",
+  // Zillion main
+  "0xd9a2F88dFbe0133Ed78B2f0515BaF6D08443FD47",
+  "0x5CfF8a6E17EdB109A678bfb9347E99c9b4E1569E", // Zillion vendor
+  "0x42cCA21cfbea77b341bBC64105b66FD79B6b3060" // Zillion validator
 ];
 
 // Custom chain definition — matches your existing viem.ts in the dapp

@@ -1,34 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// =============================================================================
-// ClarityChain.sol
-// Anti-Corruption Donation Tracker
-// Polkadot Solidity Hackathon 2026 - Cebu Edition
-//
-// Key Mechanic: NGOs can ONLY withdraw to whitelisted vendors that are
-// explicitly associated with their campaign and within a capped allocation.
-// All approvals require a multi-sig majority from community validators.
-//
-// Changelog from v2:
-//   - [Feature] Campaign-vendor association with capped allocations
-//   - [Feature] Procurement instructions on-chain
-//   - [Feature] Vendor refund to campaign
-//   - [Feature] NGO/individual identity verification
-// Changelog from v3:
-//   - [Optimization] All require strings replaced with custom errors (EIP-170)
-// Changelog from v4:
-//   - [Feature] Donation cap — donate() reverts if amount would exceed goalAmount
-//   - [Feature] getWhitelistedVendors() — returns all approved vendor addresses + names
-// =============================================================================
-
 contract ClarityChain {
-
-    // =========================================================================
-    // CUSTOM ERRORS
-    // Replaces all require() string messages. Each compiles to a 4-byte
-    // selector instead of a full string — reduces bytecode by 3-5KB.
-    // =========================================================================
 
     error NotOwner();
     error ReentrantCall();
@@ -40,7 +13,7 @@ contract ClarityChain {
     error GoalMustBeGreaterThanZero();
     error DonationMustBeGreaterThanZero();
     error DonationExceedsGoal();
-    error VendorNotWhitelistedRejected();   // THE MONEY SHOT — demo rejection
+    error VendorNotWhitelistedRejected();
     error VendorNotAssociatedWithCampaign();
     error AmountMustBeGreaterThanZero();
     error AmountExceedsVendorCap();
@@ -72,20 +45,12 @@ contract ClarityChain {
     error IdentityProposalAlreadyExecuted();
     error AlreadyApprovedIdentityProposal();
 
-    // =========================================================================
-    // OWNERSHIP
-    // =========================================================================
-
     address public owner;
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
         _;
     }
-
-    // =========================================================================
-    // REENTRANCY GUARD
-    // =========================================================================
 
     bool private locked;
 
@@ -95,10 +60,6 @@ contract ClarityChain {
         _;
         locked = false;
     }
-
-    // =========================================================================
-    // STRUCTS
-    // =========================================================================
 
     struct Campaign {
         string name;
@@ -121,15 +82,11 @@ contract ClarityChain {
 
     struct Transaction {
         TxType txType;
-        address actor;      // donor, NGO (for withdrawal), or vendor (for refund)
-        address vendor;     // populated for Withdrawal and VendorRefund; address(0) for donations
+        address actor;
+        address vendor;
         uint256 amount;
         uint256 timestamp;
     }
-
-    // =========================================================================
-    // STATE VARIABLES
-    // =========================================================================
 
     uint256 public campaignCount;
     mapping(uint256 => Campaign) public campaigns;
@@ -167,10 +124,6 @@ contract ClarityChain {
     mapping(address => bool) public verifiedIdentities;
     mapping(address => string) public identityLinks;
 
-    // =========================================================================
-    // EVENTS
-    // =========================================================================
-
     event CampaignCreated(uint256 indexed campaignId, string name, address indexed ngo, uint256 goalAmount);
     event DonationReceived(uint256 indexed campaignId, address indexed donor, uint256 amount);
     event WithdrawalToVendor(uint256 indexed campaignId, address indexed vendor, string vendorName, uint256 amount);
@@ -185,10 +138,6 @@ contract ClarityChain {
     event IdentityVerificationApplied(uint256 indexed proposalId, address indexed applicant, string profileLinks);
     event IdentityVerificationSigned(uint256 indexed proposalId, address indexed validator, uint256 currentApprovals);
     event IdentityVerified(uint256 indexed proposalId, address indexed applicant, string profileLinks);
-
-    // =========================================================================
-    // MODIFIERS
-    // =========================================================================
 
     modifier onlyValidator() {
         bool isValidator = false;
@@ -213,11 +162,6 @@ contract ClarityChain {
         if (!campaigns[campaignId].active) revert CampaignNotActive();
         _;
     }
-
-    // =========================================================================
-    // CONSTRUCTOR
-    // =========================================================================
-
     constructor(address[] memory _validators) {
         if (_validators.length < 3 || _validators.length > 5) revert NeedBetweenThreeAndFiveValidators();
         owner = msg.sender;
@@ -228,10 +172,6 @@ contract ClarityChain {
         }
     }
 
-    // =========================================================================
-    // INTERNAL HELPERS
-    // =========================================================================
-
     function _containsPipe(string memory str) internal pure returns (bool) {
         bytes memory b = bytes(str);
         for (uint256 i = 0; i < b.length; i++) {
@@ -239,10 +179,6 @@ contract ClarityChain {
         }
         return false;
     }
-
-    // =========================================================================
-    // CAMPAIGN FUNCTIONS
-    // =========================================================================
 
     function createCampaign(string memory _name, uint256 _goalAmount)
         external
@@ -295,10 +231,6 @@ contract ClarityChain {
         emit DonationReceived(campaignId, msg.sender, msg.value);
     }
 
-    // =========================================================================
-    // CAMPAIGN-VENDOR ASSOCIATION
-    // =========================================================================
-
     function associateVendor(
         uint256 campaignId,
         address vendor,
@@ -341,7 +273,6 @@ contract ClarityChain {
         onlyNGO(campaignId)
         nonReentrant
     {
-        // THIS IS THE MONEY LINE. Non-whitelisted = instant rejection.
         if (!whitelistedVendors[vendor]) revert VendorNotWhitelistedRejected();
         if (!campaignVendors[campaignId][vendor].associated) revert VendorNotAssociatedWithCampaign();
         if (amount == 0) revert AmountMustBeGreaterThanZero();
@@ -378,10 +309,6 @@ contract ClarityChain {
         emit CampaignClosed(campaignId);
     }
 
-    // =========================================================================
-    // VENDOR REFUND TO CAMPAIGN
-    // =========================================================================
-
     function vendorRefundToCampaign(uint256 campaignId)
         external
         payable
@@ -415,10 +342,6 @@ contract ClarityChain {
 
         emit VendorRefundedCampaign(campaignId, msg.sender, msg.value);
     }
-
-    // =========================================================================
-    // REFUND FUNCTIONS (Pull Pattern)
-    // =========================================================================
 
     function enableRefunds(uint256 campaignId)
         external
@@ -457,10 +380,6 @@ contract ClarityChain {
 
         emit RefundClaimed(campaignId, msg.sender, refundAmount);
     }
-
-    // =========================================================================
-    // VENDOR MULTI-SIG FUNCTIONS
-    // =========================================================================
 
     function proposeVendor(address vendor, string memory vendorName)
         external
@@ -501,10 +420,6 @@ contract ClarityChain {
         }
     }
 
-    // =========================================================================
-    // IDENTITY VERIFICATION FUNCTIONS
-    // =========================================================================
-
     function applyForVerification(string memory profileLinks)
         external
         returns (uint256 proposalId)
@@ -541,10 +456,6 @@ contract ClarityChain {
             emit IdentityVerified(proposalId, applicant, links);
         }
     }
-
-    // =========================================================================
-    // VIEW FUNCTIONS
-    // =========================================================================
 
     function getCampaign(uint256 campaignId)
         external
@@ -688,9 +599,6 @@ contract ClarityChain {
         return (verifiedIdentities[wallet], identityLinks[wallet]);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TRANSACTION HISTORY
-    // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Returns all recorded transactions for a campaign (donations,
     ///         withdrawals, vendor refunds), ordered oldest-first.
