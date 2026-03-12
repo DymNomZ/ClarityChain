@@ -27,15 +27,15 @@ export const VALIDATOR_PROFILES: Record<string, ValidatorProfile> = {
     links: ["https://faucet.polkadot.io/"],
   },
   // Zillion
-  "0xd9a2F88dFbe0133Ed78B2f0515BaF6D08443FD47": {
+  "0xd9a2f88dfbe0133ed78b2f0515baf6d08443fd47": {
     name: "Government Unit",
     links: ["https://faucet.polkadot.io/"],
   },
-  "0x5CfF8a6E17EdB109A678bfb9347E99c9b4E1569E": { // Zillion Validator
+  "0x5cff8a6e17edb109a678bfb9347e99c9b4e1569e": { // Zillion Validator
     name: "Civic Organization",
     links: ["https://faucet.polkadot.io/"],
   },
-  "0x42cCA21cfbea77b341bBC64105b66FD79B6b3060": { // Zillion Vendor
+  "0x42cca21cfbea77b341bbc64105b66fd79b6b3060": { // Zillion Vendor
     name: "Academic Institution",
     links: ["https://faucet.polkadot.io/"],
   },

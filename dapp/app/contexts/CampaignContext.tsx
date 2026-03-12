@@ -41,14 +41,6 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
 
             const fetched: Campaign[] = [];
             for (let i = 0; i < Number(count); i++) {
-                // getCampaign now returns 7 fields — refundsEnabled added at index [6]
-                const campaignPromise = publicClient.readContract({
-                    address: CONTRACT_ADDRESS,
-                    abi: CONTRACT_ABI,
-                    functionName: "getCampaign",
-                    args: [BigInt(i)],
-                })
-
                 const result = await abortableFetch(
                     publicClient.readContract({
                         address: CONTRACT_ADDRESS,

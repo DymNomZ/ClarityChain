@@ -121,7 +121,7 @@ const CreateCampaignForm: React.FC<{ onSuccess: () => void; onCancel: () => void
           <label className="block text-sm text-gray-400 mb-1">Campaign Name</label>
           <input
             type="text"
-            placeholder="e.g., Typhoon Odette Relief Fund"
+            placeholder="e.g., Typhoon Relief Fund"
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={isSubmitting}
