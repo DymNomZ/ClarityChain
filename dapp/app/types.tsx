@@ -16,6 +16,7 @@ interface FeedEvent {
   blockNumber: bigint;
   data: Record<string, string>;
   campaignId?: number;
+  campaignNgo?: string;
 }
 
 // Vendor map fetched once at TransactionFeed level and passed as prop.

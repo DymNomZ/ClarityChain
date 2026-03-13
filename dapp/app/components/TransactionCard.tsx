@@ -38,7 +38,7 @@ export const EVENT_COLORS: Record<string, string> = {
 };
 
 // Address-type fields that may belong to a known validator or verified identity.
-export const ADDRESS_FIELDS = new Set(["validator", "ngo", "donor", "vendor", "proposedby", "applicant"]);
+export const ADDRESS_FIELDS = new Set(["validator", "ngo", "donor", "vendor", "proposedby", "applicant", "campaigncreator"]);
 type IdentityTier = "validator" | "vendor" | "verified";
 
 interface IdentityInfo {
@@ -177,6 +177,13 @@ export default function TransactionCard({event, vendorMap, backgroundColor = "bg
                 {Object.entries(event.data).map(([key, val]) => (
                 <ValidatorAwareField key={key} fieldKey={key} value={val} vendorMap={vendorMap} />
                 ))}
+                {event.campaignNgo && (
+                  <ValidatorAwareField
+                    fieldKey="campaignCreator"
+                    value={event.campaignNgo}
+                    vendorMap={vendorMap}
+                  />
+                )}
             </div>
 
             {event.txHash && (
