@@ -71,6 +71,7 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
                     vendors: vendors
                 });
             }
+            fetched.reverse()
             setCampaigns(fetched);
 
             if (account != null) {
