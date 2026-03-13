@@ -96,7 +96,8 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
                             // Amounts are in wei — only format as PAS if they look like token amounts
                             data[key] = val > 1_000_000_000n ? `${formatEther(val)} PAS` : val.toString();
                         } else if (typeof val === "string") {
-                            data[key] = val;
+                            // strip pipe-separated links from vendorName
+                            data[key] = key === "vendorName" ? val.split("|")[0] : val;
                         } else if (typeof val === "boolean") {
                             data[key] = val ? "Yes" : "No";
                         } else {
@@ -135,6 +136,7 @@ export function FeedProvider({ children }: { children: React.ReactNode }) {
                         const index = txHashIndexMap.get(extLog.transactionHash);
                         if (index !== undefined) {
                             parsed[index].campaignId = campaign.id;
+                            parsed[index].campaignNgo = campaign.ngo;
                         }
                     }
                 }
