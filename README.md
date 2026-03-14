@@ -1,4 +1,6 @@
 # 💮 ClarityChain 🔍
+
+![ClarityChain logo](dapp/public/banner.png)
 ### 🚫 The Anti-Corruption Donation Tracker 🚫
 **🌸 Polkadot Solidity Hackathon 2026 — Cebu Edition 🌷**
 
